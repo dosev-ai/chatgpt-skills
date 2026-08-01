@@ -52,6 +52,12 @@ class PublicSkillValidatorTests(unittest.TestCase):
             else:
                 path.write_text(f"test fixture for {relative}\n", encoding="utf-8")
 
+    def _approve_repository_license(self) -> None:
+        (self.root / "LICENSE").write_text(
+            "Public test license terms. " * 8,
+            encoding="utf-8",
+        )
+
     def _base_manifest(self, *, license_status: str = "pending-owner-decision") -> dict[str, Any]:
         return {
             "schema_version": 1,
@@ -69,9 +75,11 @@ class PublicSkillValidatorTests(unittest.TestCase):
             "versioning": {"scheme": "semver"},
             "license_status": license_status,
             "allowed_release_states": [
+                "not-candidate",
                 "candidate-needs-sanitization",
                 "ready-for-public-pr",
                 "public-pr-open",
+                "public-merged-verification-pending",
                 "public-released",
             ],
             "skills": [],
@@ -83,7 +91,14 @@ class PublicSkillValidatorTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def _skill_entry(self, *, release_state: str = "public-pr-open") -> dict[str, Any]:
+    def _skill_entry(
+        self,
+        *,
+        release_state: str = "public-pr-open",
+        artifact_status: str = "none",
+        include_package_hash: bool = False,
+    ) -> dict[str, Any]:
+        merged_states = {"public-merged-verification-pending", "public-released"}
         entry: dict[str, Any] = {
             "id": "example-skill",
             "path": "skills/example-skill",
@@ -99,17 +114,17 @@ class PublicSkillValidatorTests(unittest.TestCase):
                 "final_pr_head": "a" * 40,
                 "merge_commit": "b" * 40,
             },
-            "license": "pending" if release_state != "public-released" else "MIT",
-            "public_pr": 7,
+            "license": "MIT" if release_state in merged_states else "pending",
+            "artifact_status": artifact_status,
         }
+        if release_state in {"public-pr-open", *merged_states}:
+            entry["public_pr"] = 7
+        if release_state in merged_states:
+            entry["public_merge_commit"] = "c" * 40
         if release_state == "public-released":
-            entry.update(
-                {
-                    "public_merge_commit": "c" * 40,
-                    "package_sha256": "d" * 64,
-                    "verification": "Clean-room invocation passed.",
-                }
-            )
+            entry["verification"] = "Clean-room invocation passed."
+        if include_package_hash:
+            entry["package_sha256"] = "d" * 64
         return entry
 
     def _write_skill(self, entry: dict[str, Any], *, body: str = "Public skill body.\n") -> None:
@@ -134,12 +149,13 @@ class PublicSkillValidatorTests(unittest.TestCase):
         )
         (skill_dir / "README.md").write_text(
             "# Example Skill\n\n"
-            f"Canonical repository: {canonical['repository']}\n\n"
-            f"Canonical path: {canonical['path']}\n\n"
-            f"Canonical version: {canonical['version']}\n\n"
-            f"Canonical source PR: PR #{canonical['source_pr']}\n\n"
-            f"Final PR HEAD: {canonical['final_pr_head']}\n\n"
-            f"Merge commit: {canonical['merge_commit']}\n",
+            "## Canonical lineage\n\n"
+            f"- Canonical repository: `{canonical['repository']}`\n"
+            f"- Canonical path: `{canonical['path']}`\n"
+            f"- Canonical version: `{canonical['version']}`\n"
+            f"- Canonical source PR: `#{canonical['source_pr']}`\n"
+            f"- Canonical final PR HEAD: `{canonical['final_pr_head']}`\n"
+            f"- Canonical merge commit: `{canonical['merge_commit']}`\n",
             encoding="utf-8",
         )
         (skill_dir / "agents" / "openai.yaml").write_text(
@@ -160,7 +176,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self._write_manifest(self._base_manifest())
         code, output = self._run()
         self.assertEqual(code, 0)
-        self.assertIn("0 registered skill(s)", output)
+        self.assertIn("0 registered skill directorie(s)", output)
 
     def test_valid_public_pr_open_skill_passes(self) -> None:
         manifest = self._base_manifest()
@@ -170,7 +186,17 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self._write_manifest(manifest)
         code, output = self._run()
         self.assertEqual(code, 0)
-        self.assertIn("1 registered skill(s)", output)
+        self.assertIn("1 registered skill directorie(s)", output)
+
+    def test_not_candidate_without_public_directory_passes(self) -> None:
+        manifest = self._base_manifest()
+        entry = self._skill_entry(release_state="not-candidate")
+        entry["license"] = "not-applicable"
+        manifest["skills"].append(entry)
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 0)
+        self.assertIn("0 registered skill directorie(s)", output)
 
     def test_public_released_requires_approved_repository_license(self) -> None:
         manifest = self._base_manifest(license_status="pending-owner-decision")
@@ -182,27 +208,84 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("requires approved repository license", output)
 
-    def test_private_action_identifier_is_rejected(self) -> None:
-        manifest = self._base_manifest()
-        entry = self._skill_entry()
+    def test_public_released_without_package_passes(self) -> None:
+        self._approve_repository_license()
+        manifest = self._base_manifest(license_status="approved")
+        entry = self._skill_entry(release_state="public-released", artifact_status="none")
         manifest["skills"].append(entry)
-        self._write_skill(entry, body="Leaked action-1785621210329-210329-c1a4b863-2ad5.\n")
+        self._write_skill(entry)
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 0)
+        self.assertIn("1 registered skill directorie(s)", output)
+
+    def test_packaged_public_release_requires_hash(self) -> None:
+        self._approve_repository_license()
+        manifest = self._base_manifest(license_status="approved")
+        entry = self._skill_entry(release_state="public-released", artifact_status="package")
+        manifest["skills"].append(entry)
+        self._write_skill(entry)
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("requires package_sha256", output)
+
+    def test_packaged_public_release_with_hash_passes(self) -> None:
+        self._approve_repository_license()
+        manifest = self._base_manifest(license_status="approved")
+        entry = self._skill_entry(
+            release_state="public-released",
+            artifact_status="package",
+            include_package_hash=True,
+        )
+        manifest["skills"].append(entry)
+        self._write_skill(entry)
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 0)
+        self.assertIn("1 registered skill directorie(s)", output)
+
+    def test_private_action_identifier_in_root_csv_is_rejected(self) -> None:
+        manifest = self._base_manifest()
+        private_id = "action-" + "1785621210329" + "-210329-" + "c1a4b863" + "-2ad5"
+        (self.root / "public-data.csv").write_text(f"value\n{private_id}\n", encoding="utf-8")
         self._write_manifest(manifest)
         code, output = self._run()
         self.assertEqual(code, 1)
         self.assertIn("private Action Production identifier", output)
 
-    def test_missing_readme_lineage_is_rejected(self) -> None:
+    def test_private_identifier_in_skill_csv_is_rejected(self) -> None:
         manifest = self._base_manifest()
         entry = self._skill_entry()
         manifest["skills"].append(entry)
         self._write_skill(entry)
-        readme = self.root / entry["path"] / "README.md"
-        readme.write_text("# Missing lineage\n", encoding="utf-8")
+        private_id = "fact-" + "1785621202220" + "-202220-" + "416a22f6" + "-f06a"
+        reference = self.root / entry["path"] / "references" / "private.csv"
+        reference.parent.mkdir(parents=True, exist_ok=True)
+        reference.write_text(f"id\n{private_id}\n", encoding="utf-8")
         self._write_manifest(manifest)
         code, output = self._run()
         self.assertEqual(code, 1)
-        self.assertIn("missing canonical lineage", output)
+        self.assertIn("private Action Production identifier", output)
+
+    def test_unlabeled_readme_lineage_is_rejected(self) -> None:
+        manifest = self._base_manifest()
+        entry = self._skill_entry()
+        manifest["skills"].append(entry)
+        self._write_skill(entry)
+        canonical = entry["canonical"]
+        readme = self.root / entry["path"] / "README.md"
+        readme.write_text(
+            "# Misleading lineage\n\n"
+            f"Historical values: {canonical['repository']} {canonical['path']} "
+            f"{canonical['version']} #{canonical['source_pr']} "
+            f"{canonical['final_pr_head']} {canonical['merge_commit']}\n",
+            encoding="utf-8",
+        )
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("missing exact canonical lineage field", output)
 
     def test_approved_license_status_requires_license_file(self) -> None:
         manifest = self._base_manifest(license_status="approved")
@@ -210,6 +293,26 @@ class PublicSkillValidatorTests(unittest.TestCase):
         code, output = self._run()
         self.assertEqual(code, 1)
         self.assertIn("requires a repository LICENSE file", output)
+
+    def test_approved_license_status_rejects_empty_license(self) -> None:
+        manifest = self._base_manifest(license_status="approved")
+        (self.root / "LICENSE").write_text("   \n", encoding="utf-8")
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("requires substantive repository license terms", output)
+
+    def test_public_released_rejects_blank_skill_license(self) -> None:
+        self._approve_repository_license()
+        manifest = self._base_manifest(license_status="approved")
+        entry = self._skill_entry(release_state="public-released")
+        entry["license"] = "   "
+        manifest["skills"].append(entry)
+        self._write_skill(entry)
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("must not be blank", output)
 
 
 if __name__ == "__main__":
