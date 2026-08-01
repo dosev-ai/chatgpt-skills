@@ -1,7 +1,7 @@
 name: Bot Comment Gate
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review]
   pull_request_review:
     types: [submitted, edited, dismissed]
@@ -50,6 +50,12 @@ jobs:
           gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" --slurp > "$files_file"
           head_sha=$(gh pr view "$PR_NUMBER" --repo "$REPO" --json headRefOid -q .headRefOid)
 
+          changed_count=$(jq '(add // []) | length' "$files_file")
+          if [ "$changed_count" -eq 0 ]; then
+            echo "Pull request has no changed files."
+            exit 1
+          fi
+
           bot_logins='["github-copilot[bot]","copilot-pull-request-reviewer","copilot-pull-request-reviewer[bot]","openai-codex[bot]","chatgpt-codex-connector[bot]","chatgpt-codex-connector"]'
 
           missing=$(jq --argjson bots "$bot_logins" '
@@ -73,45 +79,37 @@ jobs:
             exit 1
           fi
 
-          high_risk=$(jq '
-            [(add // [])[].filename |
-              select(test("^\\.github/workflows/|^scripts/|^schemas/|^GOVERNANCE\\.md$|^PUBLICATION_WORKFLOW\\.md$|^skills-manifest\\.yaml$|^CODEOWNERS$|^\\.github/CODEOWNERS$|^\\.github/pull_request_template\\.md$"))] |
-            length > 0
-          ' "$files_file")
+          reviewed_head=$(jq --argjson bots "$bot_logins" --arg head "$head_sha" '
+            [(add // [])[] |
+              select(
+                .commit_id == $head and
+                .state != "DISMISSED" and
+                (.user.login as $u | $bots | index($u))
+              )] |
+              length > 0
+          ' "$reviews_file")
 
-          if [ "$high_risk" = "true" ]; then
-            reviewed_head=$(jq --argjson bots "$bot_logins" --arg head "$head_sha" '
-              [(add // [])[] |
-                select(
-                  .commit_id == $head and
-                  .state != "DISMISSED" and
-                  (.user.login as $u | $bots | index($u))
-                )] |
-                length > 0
-            ' "$reviews_file")
+          if [ "$reviewed_head" != "true" ]; then
+            while IFS= read -r reviewed_ref; do
+              [ -n "$reviewed_ref" ] || continue
+              resolved_sha=$(gh api "repos/$REPO/commits/$reviewed_ref" --jq .sha 2>/dev/null || true)
+              if [ "$resolved_sha" = "$head_sha" ]; then
+                reviewed_head=true
+                break
+              fi
+            done < <(
+              jq -r --argjson bots "$bot_logins" '
+                (add // [])[] |
+                select(.user.login as $u | $bots | index($u)) |
+                (.body // "") |
+                try (capture("Reviewed commit[^0-9a-fA-F]*(?<sha>[0-9a-fA-F]{7,40})"; "i").sha | ascii_downcase) catch empty
+              ' "$issue_comments_file"
+            )
+          fi
 
-            if [ "$reviewed_head" != "true" ]; then
-              while IFS= read -r reviewed_ref; do
-                [ -n "$reviewed_ref" ] || continue
-                resolved_sha=$(gh api "repos/$REPO/commits/$reviewed_ref" --jq .sha 2>/dev/null || true)
-                if [ "$resolved_sha" = "$head_sha" ]; then
-                  reviewed_head=true
-                  break
-                fi
-              done < <(
-                jq -r --argjson bots "$bot_logins" '
-                  (add // [])[] |
-                  select(.user.login as $u | $bots | index($u)) |
-                  (.body // "") |
-                  try (capture("Reviewed commit[^0-9a-fA-F]*(?<sha>[0-9a-fA-F]{7,40})"; "i").sha | ascii_downcase) catch empty
-                ' "$issue_comments_file"
-              )
-            fi
-
-            if [ "$reviewed_head" != "true" ]; then
-              echo "No approved automated reviewer has reviewed the current high-risk PR head: $head_sha"
-              exit 1
-            fi
+          if [ "$reviewed_head" != "true" ]; then
+            echo "No approved automated reviewer has reviewed the current PR head: $head_sha"
+            exit 1
           fi
 
           echo "Bot Comment Gate PASS"
