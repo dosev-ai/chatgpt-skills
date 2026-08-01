@@ -74,7 +74,7 @@ FORBIDDEN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("GitHub token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b")),
     ("OpenAI-style secret key", re.compile(r"\bsk-[A-Za-z0-9_-]{20,}\b")),
     ("AWS access key", re.compile(r"\bAKIA[0-9A-Z]{16}\b")),
-    ("private Cortex URI", re.compile(r"\bcortex://[^\s)`]+", re.IGNORECASE)),
+    ("private Cortex URI", re.compile(r"\bcortex" + r"://[^\s)`]+", re.IGNORECASE)),
     (
         "private Action Production identifier",
         re.compile(r"\b(?:action|fact)-\d{13}-\d{6}-[0-9a-f]{8}-[0-9a-f]{4}\b", re.IGNORECASE),
