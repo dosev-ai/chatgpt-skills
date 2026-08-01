@@ -27,6 +27,20 @@ SEMVER_PATTERN = re.compile(
 )
 ALLOWED_SKILL_FRONTMATTER = {"name", "description", "license", "allowed-tools", "metadata"}
 TEXT_SUFFIXES = {".md", ".txt", ".yaml", ".yml", ".json", ".py", ".sh", ".toml"}
+REQUIRED_ROOT_FILES = (
+    "README.md",
+    "GOVERNANCE.md",
+    "CONTRIBUTING.md",
+    "PUBLICATION_WORKFLOW.md",
+    "LICENSE-STATUS.md",
+    "skills-manifest.yaml",
+    "schemas/public-skills-manifest.schema.json",
+    "scripts/validate_public_skills.py",
+    ".github/workflows/public-skill-validation.yml",
+    ".github/workflows/bot-comment-gate.yml",
+)
+APPROVED_LICENSE_FILES = ("LICENSE", "LICENSE.md", "LICENSE.txt")
+FORBIDDEN_FILENAMES = {".env", "credentials.json", "secrets.json", "id_rsa", "id_ed25519"}
 FORBIDDEN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("private key material", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
     ("GitHub token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b")),
@@ -106,8 +120,22 @@ def extract_frontmatter(text: str) -> str | None:
     return None
 
 
+def validate_root_contract(manifest: dict[str, Any]) -> None:
+    for relative in REQUIRED_ROOT_FILES:
+        if not (ROOT / relative).is_file():
+            fail(f"required public repository file is missing: {relative}")
+
+    license_status = manifest["license_status"]
+    if license_status == "approved" and not any((ROOT / name).is_file() for name in APPROVED_LICENSE_FILES):
+        fail("approved license_status requires a repository LICENSE file")
+    if license_status == "pending-owner-decision" and not (ROOT / "LICENSE-STATUS.md").is_file():
+        fail("pending license_status requires LICENSE-STATUS.md")
+
+
 def scan_public_safety(skill_dir: Path) -> None:
     for path in sorted(skill_dir.rglob("*")):
+        if path.name.lower() in FORBIDDEN_FILENAMES:
+            fail(f"forbidden sensitive filename in public skill: {path.relative_to(ROOT)}")
         if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
             continue
         try:
@@ -192,11 +220,15 @@ def validate_skill(entry: dict[str, Any], repository_license_status: str) -> Non
         fail(f"CHANGELOG.md must contain version {version} for {skill_id}")
 
     readme = (skill_dir / "README.md").read_text(encoding="utf-8")
-    for expected in (
+    expected_lineage = (
         canonical["repository"],
         canonical["path"],
+        canonical["version"],
+        f"PR #{canonical['source_pr']}",
+        canonical["final_pr_head"],
         canonical["merge_commit"],
-    ):
+    )
+    for expected in expected_lineage:
         if expected not in readme:
             fail(f"README.md is missing canonical lineage {expected!r} for {skill_id}")
 
@@ -206,6 +238,8 @@ def validate_skill(entry: dict[str, Any], repository_license_status: str) -> Non
     if release_state == "public-released":
         if repository_license_status != "approved":
             fail(f"public-released skill requires approved repository license: {skill_id}")
+        if entry["license"].strip().lower() in {"pending", "unknown", "unlicensed"}:
+            fail(f"public-released skill requires an approved license value: {skill_id}")
         for key in ("public_merge_commit", "package_sha256", "verification"):
             if key not in entry:
                 fail(f"public-released skill requires {key}: {skill_id}")
@@ -225,6 +259,7 @@ def main() -> int:
     except (OSError, json.JSONDecodeError) as exc:
         fail(f"invalid public manifest JSON schema: {exc}")
     validate_schema(manifest, schema)
+    validate_root_contract(manifest)
 
     entries = manifest["skills"]
     entries_by_id: dict[str, dict[str, Any]] = {}
