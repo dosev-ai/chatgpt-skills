@@ -26,7 +26,6 @@ SEMVER_PATTERN = re.compile(
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
 )
 ALLOWED_SKILL_FRONTMATTER = {"name", "description", "license", "allowed-tools", "metadata"}
-TEXT_SUFFIXES = {".md", ".txt", ".yaml", ".yml", ".json", ".py", ".sh", ".toml"}
 REQUIRED_ROOT_FILES = (
     "README.md",
     "GOVERNANCE.md",
@@ -36,11 +35,40 @@ REQUIRED_ROOT_FILES = (
     "skills-manifest.yaml",
     "schemas/public-skills-manifest.schema.json",
     "scripts/validate_public_skills.py",
+    "tests/test_validate_public_skills.py",
     ".github/workflows/public-skill-validation.yml",
     ".github/workflows/bot-comment-gate.yml",
+    ".github/ISSUE_TEMPLATE/public-skill-defect.yml",
 )
 APPROVED_LICENSE_FILES = ("LICENSE", "LICENSE.md", "LICENSE.txt")
-FORBIDDEN_FILENAMES = {".env", "credentials.json", "secrets.json", "id_rsa", "id_ed25519"}
+FORBIDDEN_FILENAMES = {
+    ".env",
+    "credentials.json",
+    "secrets.json",
+    "id_rsa",
+    "id_ed25519",
+}
+IGNORED_DIR_NAMES = {".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
+BINARY_SUFFIXES = {
+    ".gif",
+    ".gz",
+    ".ico",
+    ".jpeg",
+    ".jpg",
+    ".mov",
+    ".mp3",
+    ".mp4",
+    ".otf",
+    ".pdf",
+    ".png",
+    ".tar",
+    ".ttf",
+    ".wav",
+    ".webp",
+    ".woff",
+    ".woff2",
+    ".zip",
+}
 FORBIDDEN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("private key material", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
     ("GitHub token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b")),
@@ -122,42 +150,127 @@ def extract_frontmatter(text: str) -> str | None:
 
 def validate_root_contract(manifest: dict[str, Any]) -> None:
     for relative in REQUIRED_ROOT_FILES:
-        if not (ROOT / relative).is_file():
-            fail(f"required public repository file is missing: {relative}")
+        path = ROOT / relative
+        if not path.is_file() or path.is_symlink():
+            fail(f"required regular public repository file is missing: {relative}")
 
     license_status = manifest["license_status"]
-    if license_status == "approved" and not any((ROOT / name).is_file() for name in APPROVED_LICENSE_FILES):
-        fail("approved license_status requires a repository LICENSE file")
+    license_documents = [ROOT / name for name in APPROVED_LICENSE_FILES if (ROOT / name).exists()]
+
+    if license_status == "approved":
+        if not license_documents:
+            fail("approved license_status requires a repository LICENSE file")
+        substantive = False
+        for path in license_documents:
+            if path.is_symlink() or not path.is_file():
+                fail(f"repository license must be a regular file: {path.name}")
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                fail(f"repository license must be UTF-8 text: {path.name}")
+            if len(text.strip()) >= 100:
+                substantive = True
+        if not substantive:
+            fail("approved license_status requires substantive repository license terms")
+
     if license_status == "pending-owner-decision" and not (ROOT / "LICENSE-STATUS.md").is_file():
         fail("pending license_status requires LICENSE-STATUS.md")
 
 
-def scan_public_safety(skill_dir: Path) -> None:
-    for path in sorted(skill_dir.rglob("*")):
-        if path.name.lower() in FORBIDDEN_FILENAMES:
-            fail(f"forbidden sensitive filename in public skill: {path.relative_to(ROOT)}")
-        if not path.is_file() or path.suffix.lower() not in TEXT_SUFFIXES:
+def should_ignore(path: Path) -> bool:
+    try:
+        relative = path.relative_to(ROOT)
+    except ValueError:
+        return True
+    return any(part in IGNORED_DIR_NAMES for part in relative.parts)
+
+
+def scan_public_tree() -> None:
+    """Scan every tracked-style public file, not only registered skill directories."""
+
+    for path in sorted(ROOT.rglob("*")):
+        if should_ignore(path):
             continue
+        if path.is_symlink():
+            fail(f"symlinks are not allowed in the public tree: {path.relative_to(ROOT)}")
+        if not path.is_file():
+            continue
+
+        relative = path.relative_to(ROOT)
+        if path.name.lower() in FORBIDDEN_FILENAMES:
+            fail(f"forbidden sensitive filename in public tree: {relative}")
+        if path.suffix.lower() in BINARY_SUFFIXES:
+            continue
+
+        data = path.read_bytes()
+        if b"\x00" in data[:8192]:
+            fail(f"unapproved binary artifact in public tree: {relative}")
         try:
-            text = path.read_text(encoding="utf-8")
+            text = data.decode("utf-8")
         except UnicodeDecodeError:
-            fail(f"public text file is not valid UTF-8: {path.relative_to(ROOT)}")
+            fail(f"public artifact is not UTF-8 text or an approved binary type: {relative}")
+
         for label, pattern in FORBIDDEN_PATTERNS:
             match = pattern.search(text)
             if match:
-                fail(
-                    f"{label} detected in {path.relative_to(ROOT)}: "
-                    f"{match.group(0)[:80]!r}"
-                )
+                fail(f"{label} detected in {relative}: {match.group(0)[:80]!r}")
+
+
+def validate_release_evidence(entry: dict[str, Any], repository_license_status: str) -> None:
+    skill_id = entry["id"]
+    release_state = entry["release_state"]
+    artifact_status = entry["artifact_status"]
+    license_value = entry["license"].strip()
+
+    if not license_value:
+        fail(f"skill license value must not be blank: {skill_id}")
+
+    pre_pr_states = {"not-candidate", "candidate-needs-sanitization", "ready-for-public-pr"}
+    merged_states = {"public-merged-verification-pending", "public-released"}
+
+    if release_state in pre_pr_states and "public_pr" in entry:
+        fail(f"{release_state} must not claim public_pr for {skill_id}")
+    if release_state in {"public-pr-open", *merged_states} and "public_pr" not in entry:
+        fail(f"{release_state} requires public_pr for {skill_id}")
+    if release_state not in merged_states and "public_merge_commit" in entry:
+        fail(f"{release_state} must not claim public_merge_commit for {skill_id}")
+    if release_state in merged_states and "public_merge_commit" not in entry:
+        fail(f"{release_state} requires public_merge_commit for {skill_id}")
+
+    if artifact_status == "none" and "package_sha256" in entry:
+        fail(f"artifact_status none must not include package_sha256: {skill_id}")
+    if "package_sha256" in entry and release_state not in merged_states:
+        fail(f"package_sha256 must reference merged public content: {skill_id}")
+
+    if release_state in merged_states:
+        if repository_license_status != "approved":
+            fail(f"{release_state} requires approved repository license: {skill_id}")
+        if license_value.lower() in {"pending", "unknown", "unlicensed", "not-applicable"}:
+            fail(f"{release_state} requires an approved per-skill license: {skill_id}")
+
+    if release_state == "public-released":
+        if not entry.get("verification", "").strip():
+            fail(f"public-released skill requires verification evidence: {skill_id}")
+        if artifact_status == "package" and "package_sha256" not in entry:
+            fail(f"packaged public-released skill requires package_sha256: {skill_id}")
 
 
 def validate_skill(entry: dict[str, Any], repository_license_status: str) -> None:
     skill_id = entry["id"]
     skill_dir = ROOT / entry["path"]
+
+    validate_release_evidence(entry, repository_license_status)
+
     if entry["path"] != f"skills/{skill_id}":
         fail(f"manifest path must be skills/{skill_id}")
-    if not skill_dir.is_dir():
-        fail(f"manifest entry missing skill directory: {entry['path']}")
+
+    if entry["release_state"] == "not-candidate" and not skill_dir.exists():
+        if entry["artifact_status"] != "none":
+            fail(f"not-candidate entry must use artifact_status none: {skill_id}")
+        return
+
+    if not skill_dir.is_dir() or skill_dir.is_symlink():
+        fail(f"manifest entry missing regular skill directory: {entry['path']}")
 
     required = [
         skill_dir / "SKILL.md",
@@ -166,8 +279,8 @@ def validate_skill(entry: dict[str, Any], repository_license_status: str) -> Non
         skill_dir / "agents" / "openai.yaml",
     ]
     for required_file in required:
-        if not required_file.is_file():
-            fail(f"missing required public file: {required_file.relative_to(ROOT)}")
+        if not required_file.is_file() or required_file.is_symlink():
+            fail(f"missing required regular public file: {required_file.relative_to(ROOT)}")
 
     skill_text = (skill_dir / "SKILL.md").read_text(encoding="utf-8")
     frontmatter_text = extract_frontmatter(skill_text)
@@ -219,32 +332,18 @@ def validate_skill(entry: dict[str, Any], repository_license_status: str) -> Non
     if not re.search(heading_pattern, changelog):
         fail(f"CHANGELOG.md must contain version {version} for {skill_id}")
 
-    readme = (skill_dir / "README.md").read_text(encoding="utf-8")
+    readme_lines = set((skill_dir / "README.md").read_text(encoding="utf-8").splitlines())
     expected_lineage = (
-        canonical["repository"],
-        canonical["path"],
-        canonical["version"],
-        f"PR #{canonical['source_pr']}",
-        canonical["final_pr_head"],
-        canonical["merge_commit"],
+        f"- Canonical repository: `{canonical['repository']}`",
+        f"- Canonical path: `{canonical['path']}`",
+        f"- Canonical version: `{canonical['version']}`",
+        f"- Canonical source PR: `#{canonical['source_pr']}`",
+        f"- Canonical final PR HEAD: `{canonical['final_pr_head']}`",
+        f"- Canonical merge commit: `{canonical['merge_commit']}`",
     )
     for expected in expected_lineage:
-        if expected not in readme:
-            fail(f"README.md is missing canonical lineage {expected!r} for {skill_id}")
-
-    release_state = entry["release_state"]
-    if release_state in {"public-pr-open", "public-released"} and "public_pr" not in entry:
-        fail(f"{release_state} requires public_pr for {skill_id}")
-    if release_state == "public-released":
-        if repository_license_status != "approved":
-            fail(f"public-released skill requires approved repository license: {skill_id}")
-        if entry["license"].strip().lower() in {"pending", "unknown", "unlicensed"}:
-            fail(f"public-released skill requires an approved license value: {skill_id}")
-        for key in ("public_merge_commit", "package_sha256", "verification"):
-            if key not in entry:
-                fail(f"public-released skill requires {key}: {skill_id}")
-
-    scan_public_safety(skill_dir)
+        if expected not in readme_lines:
+            fail(f"README.md is missing exact canonical lineage field {expected!r} for {skill_id}")
 
 
 def main() -> int:
@@ -258,8 +357,10 @@ def main() -> int:
         schema = json.loads(SCHEMA.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
         fail(f"invalid public manifest JSON schema: {exc}")
+
     validate_schema(manifest, schema)
     validate_root_contract(manifest)
+    scan_public_tree()
 
     entries = manifest["skills"]
     entries_by_id: dict[str, dict[str, Any]] = {}
@@ -282,11 +383,16 @@ def main() -> int:
         if skill_id not in entries_by_id:
             fail(f"public skill directory is not registered in manifest: {skill_id}")
 
-    missing_dirs = sorted(set(entries_by_id) - found_ids)
+    required_directory_ids = {
+        skill_id
+        for skill_id, entry in entries_by_id.items()
+        if entry["release_state"] != "not-candidate"
+    }
+    missing_dirs = sorted(required_directory_ids - found_ids)
     if missing_dirs:
         fail(f"manifest entries missing directories: {', '.join(missing_dirs)}")
 
-    print(f"Public Skill Validation PASS: {len(skill_dirs)} registered skill(s).")
+    print(f"Public Skill Validation PASS: {len(skill_dirs)} registered skill directorie(s).")
     return 0
 
 
