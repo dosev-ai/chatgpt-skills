@@ -18,9 +18,11 @@ versioning:
 license_status: pending-owner-decision
 
 allowed_release_states:
+  - not-candidate
   - candidate-needs-sanitization
   - ready-for-public-pr
   - public-pr-open
+  - public-merged-verification-pending
   - public-released
 
 skills: []
