@@ -30,7 +30,9 @@
         "default_branch": {"const": "main"},
         "contribution_model": {"const": "pull-request-only"},
         "canonical_repository": {"const": "deldos/skills"},
-        "required_checks": {"const": ["Public Skill Validation"]}
+        "required_checks": {
+          "const": ["Public Skill Validation", "Bot Comment Closure Rate"]
+        }
       }
     },
     "naming": {
