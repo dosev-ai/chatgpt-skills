@@ -10,14 +10,15 @@ parity while preserving the established validation API.
 from __future__ import annotations
 
 import bz2
-import gzip
 import hashlib
 import importlib.util
 import io
 import lzma
+import struct
 import sys
 import tarfile
 import zipfile
+import zlib
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -169,43 +170,100 @@ def _read_gzip_c_string(data: bytes, index: int, source: str) -> int:
     return end + 1
 
 
-def _scan_gzip_wrapper_metadata(data: bytes, archive_source: str) -> None:
-    """Scan optional gzip wrapper fields before decompression strips them."""
+def _parse_gzip_member_header(
+    data: bytes, index: int, archive_source: str, member_number: int
+) -> int:
+    """Scan one gzip member header and return the raw DEFLATE start offset."""
 
-    if len(data) < 10 or not data.startswith(b"\x1f\x8b"):
-        _base.fail(f"invalid gzip header in {archive_source}")
-    if data[2] != 8:
-        _base.fail(f"unsupported gzip compression method in {archive_source}")
-    flags = data[3]
+    member_source = f"{archive_source}!gzip-member-{member_number}"
+    if index + 10 > len(data) or data[index : index + 2] != b"\x1f\x8b":
+        _base.fail(f"invalid gzip member header in {member_source}")
+    if data[index + 2] != 8:
+        _base.fail(f"unsupported gzip compression method in {member_source}")
+    flags = data[index + 3]
     if flags & 0xE0:
-        _base.fail(f"reserved gzip flags are set in {archive_source}")
-    index = 10
+        _base.fail(f"reserved gzip flags are set in {member_source}")
+    cursor = index + 10
     if flags & 0x04:
-        if index + 2 > len(data):
-            _base.fail(f"truncated gzip extra-length field in {archive_source}")
-        extra_length = int.from_bytes(data[index : index + 2], "little")
-        index += 2
-        if index + extra_length > len(data):
-            _base.fail(f"truncated gzip extra field in {archive_source}")
+        if cursor + 2 > len(data):
+            _base.fail(f"truncated gzip extra-length field in {member_source}")
+        extra_length = int.from_bytes(data[cursor : cursor + 2], "little")
+        cursor += 2
+        if cursor + extra_length > len(data):
+            _base.fail(f"truncated gzip extra field in {member_source}")
         scan_bytes_for_forbidden(
-            data[index : index + extra_length],
-            f"{archive_source}!gzip-extra",
+            data[cursor : cursor + extra_length],
+            f"{member_source}:extra",
         )
-        index += extra_length
+        cursor += extra_length
     if flags & 0x08:
-        index = _read_gzip_c_string(
+        cursor = _read_gzip_c_string(
             data,
-            index,
-            f"{archive_source}!gzip-filename",
+            cursor,
+            f"{member_source}:filename",
         )
     if flags & 0x10:
-        index = _read_gzip_c_string(
+        cursor = _read_gzip_c_string(
             data,
-            index,
-            f"{archive_source}!gzip-comment",
+            cursor,
+            f"{member_source}:comment",
         )
-    if flags & 0x02 and index + 2 > len(data):
-        _base.fail(f"truncated gzip header CRC in {archive_source}")
+    if flags & 0x02:
+        if cursor + 2 > len(data):
+            _base.fail(f"truncated gzip header CRC in {member_source}")
+        cursor += 2
+    return cursor
+
+
+def _scan_and_decompress_gzip_members(
+    data: bytes, archive_source: str, limit: int
+) -> bytes:
+    """Scan and bounded-decompress every concatenated gzip member."""
+
+    output = bytearray()
+    index = 0
+    member_number = 0
+    while index < len(data):
+        if data[index : index + 2] != b"\x1f\x8b":
+            trailing = data[index:]
+            scan_bytes_for_forbidden(trailing, f"{archive_source}!gzip-trailing-data")
+            if trailing and all(byte == 0 for byte in trailing):
+                break
+            _base.fail(f"unexpected trailing data after gzip members in {archive_source}")
+        member_number += 1
+        payload_start = _parse_gzip_member_header(
+            data, index, archive_source, member_number
+        )
+        remaining = limit - len(output)
+        if remaining < 0:
+            _base.fail(f"archive raw TAR stream exceeds size limit: {archive_source}")
+        compressed = data[payload_start:]
+        decompressor = zlib.decompressobj(wbits=-zlib.MAX_WBITS)
+        try:
+            member_output = decompressor.decompress(compressed, remaining + 1)
+        except zlib.error as exc:
+            _base.fail(f"invalid gzip member in {archive_source}: {exc}")
+        if len(member_output) > remaining or decompressor.unconsumed_tail:
+            _base.fail(f"archive raw TAR stream exceeds size limit: {archive_source}")
+        if not decompressor.eof:
+            _base.fail(f"truncated gzip member in {archive_source}")
+        consumed_deflate = len(compressed) - len(decompressor.unused_data)
+        trailer_start = payload_start + consumed_deflate
+        if trailer_start + 8 > len(data):
+            _base.fail(f"truncated gzip trailer in {archive_source}")
+        expected_crc, expected_size = struct.unpack(
+            "<II", data[trailer_start : trailer_start + 8]
+        )
+        actual_crc = zlib.crc32(member_output) & 0xFFFFFFFF
+        if expected_crc != actual_crc:
+            _base.fail(f"gzip member CRC mismatch in {archive_source}")
+        if expected_size != (len(member_output) & 0xFFFFFFFF):
+            _base.fail(f"gzip member size mismatch in {archive_source}")
+        output.extend(member_output)
+        index = trailer_start + 8
+    if member_number == 0:
+        _base.fail(f"gzip archive contains no members: {archive_source}")
+    return bytes(output)
 
 
 def _bounded_raw_tar_bytes(data: bytes, archive_source: str) -> bytes:
@@ -214,9 +272,7 @@ def _bounded_raw_tar_bytes(data: bytes, archive_source: str) -> bytes:
     limit = _base.MAX_ARCHIVE_UNCOMPRESSED_BYTES + RAW_TAR_OVERHEAD_BYTES
     try:
         if data.startswith(b"\x1f\x8b"):
-            _scan_gzip_wrapper_metadata(data, archive_source)
-            with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
-                raw = stream.read(limit + 1)
+            raw = _scan_and_decompress_gzip_members(data, archive_source, limit)
         elif data.startswith(b"BZh"):
             with bz2.BZ2File(io.BytesIO(data)) as stream:
                 raw = stream.read(limit + 1)
