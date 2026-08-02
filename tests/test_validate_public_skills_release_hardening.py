@@ -72,6 +72,22 @@ class PublicSkillReleaseHardeningTests(unittest.TestCase):
         )
         self.assertIn("affirmative clean-room verification evidence", output)
 
+    def test_public_released_rejects_explicit_failed_verification(self) -> None:
+        entry = {
+            "id": "example-skill",
+            "release_state": "public-released",
+            "artifact_status": "none",
+            "license": "MIT",
+            "public_pr": 7,
+            "public_merge_commit": "c" * 40,
+            "verification": "Clean-room invocation failed.",
+            "residuals": [],
+        }
+        output = self._capture_failure(
+            lambda: self.validator.validate_release_evidence(entry, "approved", True)
+        )
+        self.assertIn("affirmative clean-room verification evidence", output)
+
     def test_package_hash_must_match_actual_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -87,6 +103,33 @@ class PublicSkillReleaseHardeningTests(unittest.TestCase):
                 }
                 output = self._capture_failure(
                     lambda: self.validator.validate_package_evidence(entry)
+                )
+            finally:
+                self._restore_root(previous)
+        self.assertIn("package_sha256 does not match", output)
+
+    def test_pending_merged_package_hash_is_verified_when_recorded(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            package = root / "skills" / "example-skill" / "skill.zip"
+            package.parent.mkdir(parents=True)
+            package.write_bytes(b"pending-package-bytes")
+            previous = self._patch_root(root)
+            try:
+                entry = {
+                    "id": "example-skill",
+                    "path": "skills/example-skill",
+                    "release_state": "public-merged-verification-pending",
+                    "artifact_status": "package",
+                    "license": "MIT",
+                    "public_pr": 7,
+                    "public_merge_commit": "c" * 40,
+                    "package_sha256": "0" * 64,
+                }
+                output = self._capture_failure(
+                    lambda: self.validator.validate_release_evidence(
+                        entry, "approved", True
+                    )
                 )
             finally:
                 self._restore_root(previous)
@@ -217,6 +260,17 @@ class PublicSkillReleaseHardeningTests(unittest.TestCase):
         output = self._capture_failure(
             lambda: self.validator.scan_archive_member(
                 b"public text", f"{private_id}/file.txt", "package.zip"
+            )
+        )
+        self.assertIn("private Action Production identifier", output)
+
+    def test_private_identifier_in_archive_directory_path_is_rejected(self) -> None:
+        private_id = (
+            "action-" + "1785621210329" + "-210329-" + "c1a4b863" + "-2ad5"
+        )
+        output = self._capture_failure(
+            lambda: self.validator.validate_archive_member_name(
+                f"{private_id}/", "package.zip"
             )
         )
         self.assertIn("private Action Production identifier", output)
