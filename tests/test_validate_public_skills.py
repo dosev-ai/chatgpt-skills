@@ -124,7 +124,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
         if release_state in merged_states:
             entry["public_merge_commit"] = "c" * 40
         if release_state == "public-released":
-            entry["verification"] = "Clean-room invocation passed."
+            entry["verification"] = "PASS: Clean-room invocation completed successfully."
             entry["residuals"] = []
         if include_package_hash:
             entry["package_sha256"] = "d" * 64
@@ -171,6 +171,15 @@ class PublicSkillValidatorTests(unittest.TestCase):
         with zipfile.ZipFile(self.root / filename, "w") as archive:
             for name, content in members.items():
                 archive.writestr(name, content)
+
+    def _write_skill_package(self, entry: dict[str, Any]) -> Path:
+        skill_dir = self.root / entry["path"]
+        package_path = skill_dir / "skill.zip"
+        with zipfile.ZipFile(package_path, "w") as archive:
+            for path in sorted(skill_dir.rglob("*")):
+                if path.is_file() and path != package_path:
+                    archive.writestr(path.relative_to(skill_dir).as_posix(), path.read_bytes())
+        return package_path
 
     def _run(self) -> tuple[int, str]:
         output = io.StringIO()
@@ -293,14 +302,27 @@ class PublicSkillValidatorTests(unittest.TestCase):
         )
         manifest["skills"].append(entry)
         self._write_skill(entry)
-        package_path = self.root / entry["path"] / "skill.zip"
-        with zipfile.ZipFile(package_path, "w") as archive:
-            archive.writestr("SKILL.md", "public package fixture\n")
+        package_path = self._write_skill_package(entry)
         entry["package_sha256"] = hashlib.sha256(package_path.read_bytes()).hexdigest()
         self._write_manifest(manifest)
         code, output = self._run()
         self.assertEqual(code, 0)
         self.assertIn("1 registered skill directorie(s)", output)
+
+    def test_packaged_public_release_rejects_incomplete_tree(self) -> None:
+        self._approve_repository_license()
+        manifest = self._base_manifest(license_status="approved")
+        entry = self._skill_entry(release_state="public-released", artifact_status="package")
+        manifest["skills"].append(entry)
+        self._write_skill(entry)
+        package_path = self.root / entry["path"] / "skill.zip"
+        with zipfile.ZipFile(package_path, "w") as archive:
+            archive.writestr("SKILL.md", (self.root / entry["path"] / "SKILL.md").read_bytes())
+        entry["package_sha256"] = hashlib.sha256(package_path.read_bytes()).hexdigest()
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("package contents differ from public skill tree", output)
 
     def test_private_action_identifier_in_root_csv_is_rejected(self) -> None:
         manifest = self._base_manifest()
