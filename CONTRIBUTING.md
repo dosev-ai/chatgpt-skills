@@ -4,11 +4,22 @@
 
 This repository publishes reviewed downstream projections of skills whose canonical source is maintained in `deldos/skills`.
 
-Until the repository owner approves a public license and an inbound contribution grant, the repository accepts only maintainer-controlled projection pull requests from the canonical source. Do not submit third-party-authored skill content, copied examples, assets, scripts, or substantive patches for inclusion.
+Public skill editions are licensed under the MIT License. The initial contribution model is maintainer-controlled: public users may report defects, documentation gaps, security concerns, installation problems, or feature requests through the public issue tracker, but unsolicited third-party-authored skill content and substantive patches are not accepted at this stage.
 
-Public users may still report defects, documentation gaps, security concerns, or feature requests through the public issue tracker. Maintainers will assess whether the change belongs in the private canonical repository, the public transformation, or both.
+Maintainers assess whether a requested change belongs in the private canonical repository, the public transformation, or both. Do not open a substantive public-only skill change unless a governed exception explains why the canonical source is unaffected.
 
-Do not open a substantive public-only skill change unless a governed exception explains why the canonical source is unaffected.
+No DCO or CLA is currently required because third-party substantive contributions are disabled. Before enabling them, the repository owner must approve an inbound contribution policy and update this document and `LICENSE-STATUS.md`.
+
+## License and attribution
+
+Repository content is published under the standard MIT License unless a file explicitly states otherwise.
+
+When copying or redistributing the repository or a substantial portion of it, preserve:
+
+- the copyright notice `Copyright (c) 2026 Delyan Dosev`;
+- the MIT License text.
+
+The preferred human-readable origin reference is `Delyan Dosev — dosev-ai/chatgpt-skills`.
 
 ## Required projection packet
 
