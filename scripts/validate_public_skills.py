@@ -200,12 +200,11 @@ def scan_text(text: str, source: str) -> None:
 
 
 def scan_bytes_for_forbidden(data: bytes, source: str) -> None:
-    """Search raw binary payloads for ASCII and UTF-16 encoded sensitive values."""
+    """Search complete binary payloads for ASCII and UTF-16 sensitive values."""
 
     scan_text(data.decode("latin-1"), source)
-    if b"\x00" in data[:8192]:
-        scan_text(data.decode("utf-16-le", errors="ignore"), source)
-        scan_text(data.decode("utf-16-be", errors="ignore"), source)
+    scan_text(data.decode("utf-16-le", errors="ignore"), source)
+    scan_text(data.decode("utf-16-be", errors="ignore"), source)
 
 
 def validate_binary_format(data: bytes, suffix: str, source: str) -> None:
@@ -378,7 +377,9 @@ def scan_public_tree() -> None:
         scan_text(text, str(relative))
 
 
-def validate_release_evidence(entry: dict[str, Any], repository_license_status: str) -> None:
+def validate_release_evidence(
+    entry: dict[str, Any], repository_license_status: str, has_public_directory: bool
+) -> None:
     skill_id = entry["id"]
     release_state = entry["release_state"]
     artifact_status = entry["artifact_status"]
@@ -405,11 +406,11 @@ def validate_release_evidence(entry: dict[str, Any], repository_license_status: 
     if "package_sha256" in entry and release_state not in merged_states:
         fail(f"package_sha256 must reference merged public content: {skill_id}")
 
-    if release_state in licensed_states:
+    if has_public_directory or release_state in licensed_states:
         if repository_license_status != "approved":
-            fail(f"{release_state} requires approved repository license: {skill_id}")
+            fail(f"public skill directory requires approved repository license: {skill_id}")
         if license_value.lower() in {"pending", "unknown", "unlicensed", "not-applicable"}:
-            fail(f"{release_state} requires an approved per-skill license: {skill_id}")
+            fail(f"public skill directory requires an approved per-skill license: {skill_id}")
 
     if release_state == "public-released":
         if not entry.get("verification", "").strip():
@@ -426,7 +427,7 @@ def validate_skill(entry: dict[str, Any], repository_license_status: str) -> Non
     skill_dir = ROOT / entry["path"]
     canonical = entry["canonical"]
 
-    validate_release_evidence(entry, repository_license_status)
+    validate_release_evidence(entry, repository_license_status, skill_dir.exists())
 
     if entry["path"] != expected_path:
         fail(f"manifest path must be {expected_path}")
