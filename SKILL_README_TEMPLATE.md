@@ -36,6 +36,8 @@ State what the skill does not do, which decisions remain human-controlled, any o
 
 ## Canonical lineage
 
+Use the exact values from the governed public manifest.
+
 - Canonical repository: `<owner/repository>`
 - Canonical path: `skills/<skill-id>`
 - Canonical version: `<semantic-version>`
@@ -45,8 +47,10 @@ State what the skill does not do, which decisions remain human-controlled, any o
 
 ## Release status
 
-- Public release state: `<candidate-needs-sanitization|ready-for-public-pr|public-pr-open|public-merged-verification-pending|public-released>`
-- Public pull request: `<number or not yet opened>`
-- Artifact status: `<none|package>`
-- Clean-room verification: `<pending or evidence summary>`
-- Known residuals: `<none or concise list>`
+These five labeled lines are validated against `skills-manifest.yaml`. Do not replace them with prose, stale values or template placeholders in a real skill README.
+
+- Public release state: `<exact manifest release_state>`
+- Public pull request: `<#number or not yet opened>`
+- Artifact status: `<none or package>`
+- Clean-room verification: `<exact manifest verification or pending>`
+- Known residuals: `<semicolon-separated manifest residuals, none, or pending>`
