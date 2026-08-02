@@ -199,6 +199,46 @@ def scan_text(text: str, source: str) -> None:
             fail(f"{label} detected in {source}: {match.group(0)[:80]!r}")
 
 
+def scan_bytes_for_forbidden(data: bytes, source: str) -> None:
+    """Search raw binary payloads for ASCII and UTF-16 encoded sensitive values."""
+
+    scan_text(data.decode("latin-1"), source)
+    if b"\x00" in data[:8192]:
+        scan_text(data.decode("utf-16-le", errors="ignore"), source)
+        scan_text(data.decode("utf-16-be", errors="ignore"), source)
+
+
+def validate_binary_format(data: bytes, suffix: str, source: str) -> None:
+    """Reject files whose content does not match the claimed approved binary type."""
+
+    checks = {
+        ".png": lambda value: value.startswith(b"\x89PNG\r\n\x1a\n"),
+        ".jpg": lambda value: value.startswith(b"\xff\xd8\xff"),
+        ".jpeg": lambda value: value.startswith(b"\xff\xd8\xff"),
+        ".gif": lambda value: value.startswith((b"GIF87a", b"GIF89a")),
+        ".pdf": lambda value: value.startswith(b"%PDF-"),
+        ".webp": lambda value: len(value) >= 12 and value[:4] == b"RIFF" and value[8:12] == b"WEBP",
+        ".ico": lambda value: value.startswith(b"\x00\x00\x01\x00"),
+        ".ttf": lambda value: value.startswith((b"\x00\x01\x00\x00", b"true", b"typ1")),
+        ".otf": lambda value: value.startswith(b"OTTO"),
+        ".woff": lambda value: value.startswith(b"wOFF"),
+        ".woff2": lambda value: value.startswith(b"wOF2"),
+        ".wav": lambda value: len(value) >= 12 and value[:4] == b"RIFF" and value[8:12] == b"WAVE",
+        ".mp3": lambda value: value.startswith(b"ID3")
+        or (len(value) >= 2 and value[0] == 0xFF and value[1] & 0xE0 == 0xE0),
+        ".mp4": lambda value: len(value) >= 12 and value[4:8] == b"ftyp",
+        ".mov": lambda value: len(value) >= 12 and value[4:8] == b"ftyp",
+    }
+    checker = checks.get(suffix)
+    if checker is None or not checker(data):
+        fail(f"approved binary artifact does not match its declared format: {source}")
+
+
+def scan_binary(data: bytes, suffix: str, source: str) -> None:
+    validate_binary_format(data, suffix, source)
+    scan_bytes_for_forbidden(data, source)
+
+
 def is_supported_archive_name(name: str) -> bool:
     lower = name.lower()
     return lower.endswith((".zip", ".tar", ".tar.gz", ".tgz"))
@@ -221,15 +261,18 @@ def validate_archive_member_name(name: str, archive_source: str) -> PurePosixPat
 
 def scan_archive_member(data: bytes, name: str, archive_source: str) -> None:
     member_path = validate_archive_member_name(name, archive_source)
-    if member_path.suffix.lower() in BINARY_SUFFIXES:
+    source = f"{archive_source}!{name}"
+    suffix = member_path.suffix.lower()
+    if suffix in BINARY_SUFFIXES:
+        scan_binary(data, suffix, source)
         return
     if b"\x00" in data[:8192]:
-        fail(f"unapproved binary artifact in archive: {archive_source}!{name}")
+        fail(f"unapproved binary artifact in archive: {source}")
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
-        fail(f"archive member is not UTF-8 text or an approved binary type: {archive_source}!{name}")
-    scan_text(text, f"{archive_source}!{name}")
+        fail(f"archive member is not UTF-8 text or an approved binary type: {source}")
+    scan_text(text, source)
 
 
 def scan_zip_archive(data: bytes, archive_source: str) -> None:
@@ -245,9 +288,10 @@ def scan_zip_archive(data: bytes, archive_source: str) -> None:
                     continue
                 if info.flag_bits & 0x1:
                     fail(f"encrypted archive members are not allowed: {archive_source}!{info.filename}")
-                mode = (info.external_attr >> 16) & 0o170000
-                if mode == stat.S_IFLNK:
-                    fail(f"archive symlinks are not allowed: {archive_source}!{info.filename}")
+                mode = (info.external_attr >> 16) & 0o177777
+                file_type = stat.S_IFMT(mode)
+                if file_type not in {0, stat.S_IFREG}:
+                    fail(f"archive links and special files are not allowed: {archive_source}!{info.filename}")
                 total_uncompressed += info.file_size
                 if total_uncompressed > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
                     fail(f"archive exceeds uncompressed size limit: {archive_source}")
@@ -319,10 +363,12 @@ def scan_public_tree() -> None:
             continue
         if path.suffix.lower() == ".gz":
             fail(f"unsupported compressed artifact in public tree: {relative}")
-        if path.suffix.lower() in BINARY_SUFFIXES:
-            continue
 
         data = path.read_bytes()
+        suffix = path.suffix.lower()
+        if suffix in BINARY_SUFFIXES:
+            scan_binary(data, suffix, str(relative))
+            continue
         if b"\x00" in data[:8192]:
             fail(f"unapproved binary artifact in public tree: {relative}")
         try:
@@ -343,6 +389,7 @@ def validate_release_evidence(entry: dict[str, Any], repository_license_status: 
 
     pre_pr_states = {"not-candidate", "candidate-needs-sanitization", "ready-for-public-pr"}
     merged_states = {"public-merged-verification-pending", "public-released"}
+    licensed_states = {"public-pr-open", *merged_states}
 
     if release_state in pre_pr_states and "public_pr" in entry:
         fail(f"{release_state} must not claim public_pr for {skill_id}")
@@ -358,7 +405,7 @@ def validate_release_evidence(entry: dict[str, Any], repository_license_status: 
     if "package_sha256" in entry and release_state not in merged_states:
         fail(f"package_sha256 must reference merged public content: {skill_id}")
 
-    if release_state in merged_states:
+    if release_state in licensed_states:
         if repository_license_status != "approved":
             fail(f"{release_state} requires approved repository license: {skill_id}")
         if license_value.lower() in {"pending", "unknown", "unlicensed", "not-applicable"}:
