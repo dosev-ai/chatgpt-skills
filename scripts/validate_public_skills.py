@@ -3,10 +3,14 @@
 
 from __future__ import annotations
 
+import io
 import json
 import re
+import stat
 import sys
-from pathlib import Path
+import tarfile
+import zipfile
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 import yaml
@@ -31,11 +35,14 @@ REQUIRED_ROOT_FILES = (
     "GOVERNANCE.md",
     "CONTRIBUTING.md",
     "PUBLICATION_WORKFLOW.md",
+    "SKILL_README_TEMPLATE.md",
     "LICENSE-STATUS.md",
     "skills-manifest.yaml",
     "schemas/public-skills-manifest.schema.json",
     "scripts/validate_public_skills.py",
+    "scripts/validate_skill_readmes.py",
     "tests/test_validate_public_skills.py",
+    "tests/test_validate_skill_readmes.py",
     ".github/workflows/public-skill-validation.yml",
     ".github/workflows/bot-comment-gate.yml",
     ".github/ISSUE_TEMPLATE/public-skill-defect.yml",
@@ -51,7 +58,6 @@ FORBIDDEN_FILENAMES = {
 IGNORED_DIR_NAMES = {".git", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache"}
 BINARY_SUFFIXES = {
     ".gif",
-    ".gz",
     ".ico",
     ".jpeg",
     ".jpg",
@@ -61,14 +67,15 @@ BINARY_SUFFIXES = {
     ".otf",
     ".pdf",
     ".png",
-    ".tar",
     ".ttf",
     ".wav",
     ".webp",
     ".woff",
     ".woff2",
-    ".zip",
 }
+MAX_ARCHIVE_COMPRESSED_BYTES = 25 * 1024 * 1024
+MAX_ARCHIVE_UNCOMPRESSED_BYTES = 50 * 1024 * 1024
+MAX_ARCHIVE_ENTRIES = 1000
 FORBIDDEN_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("private key material", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
     ("GitHub token", re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b")),
@@ -185,8 +192,116 @@ def should_ignore(path: Path) -> bool:
     return any(part in IGNORED_DIR_NAMES for part in relative.parts)
 
 
+def scan_text(text: str, source: str) -> None:
+    for label, pattern in FORBIDDEN_PATTERNS:
+        match = pattern.search(text)
+        if match:
+            fail(f"{label} detected in {source}: {match.group(0)[:80]!r}")
+
+
+def is_supported_archive_name(name: str) -> bool:
+    lower = name.lower()
+    return lower.endswith((".zip", ".tar", ".tar.gz", ".tgz"))
+
+
+def validate_archive_member_name(name: str, archive_source: str) -> PurePosixPath:
+    if "\\" in name or re.match(r"^[A-Za-z]:", name):
+        fail(f"unsafe archive member path in {archive_source}: {name!r}")
+    member_path = PurePosixPath(name)
+    if member_path.is_absolute() or ".." in member_path.parts:
+        fail(f"unsafe archive member path in {archive_source}: {name!r}")
+    if not member_path.name and name not in {"", "."}:
+        return member_path
+    if member_path.name.lower() in FORBIDDEN_FILENAMES:
+        fail(f"forbidden sensitive filename in archive {archive_source}: {name}")
+    if is_supported_archive_name(member_path.name):
+        fail(f"nested archives are not allowed in public packages: {archive_source}!{name}")
+    return member_path
+
+
+def scan_archive_member(data: bytes, name: str, archive_source: str) -> None:
+    member_path = validate_archive_member_name(name, archive_source)
+    if member_path.suffix.lower() in BINARY_SUFFIXES:
+        return
+    if b"\x00" in data[:8192]:
+        fail(f"unapproved binary artifact in archive: {archive_source}!{name}")
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        fail(f"archive member is not UTF-8 text or an approved binary type: {archive_source}!{name}")
+    scan_text(text, f"{archive_source}!{name}")
+
+
+def scan_zip_archive(data: bytes, archive_source: str) -> None:
+    total_uncompressed = 0
+    try:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            infos = archive.infolist()
+            if len(infos) > MAX_ARCHIVE_ENTRIES:
+                fail(f"archive contains too many entries: {archive_source}")
+            for info in infos:
+                validate_archive_member_name(info.filename, archive_source)
+                if info.is_dir():
+                    continue
+                if info.flag_bits & 0x1:
+                    fail(f"encrypted archive members are not allowed: {archive_source}!{info.filename}")
+                mode = (info.external_attr >> 16) & 0o170000
+                if mode == stat.S_IFLNK:
+                    fail(f"archive symlinks are not allowed: {archive_source}!{info.filename}")
+                total_uncompressed += info.file_size
+                if total_uncompressed > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
+                    fail(f"archive exceeds uncompressed size limit: {archive_source}")
+                with archive.open(info) as member:
+                    member_data = member.read(info.file_size + 1)
+                if len(member_data) != info.file_size:
+                    fail(f"archive member size mismatch: {archive_source}!{info.filename}")
+                scan_archive_member(member_data, info.filename, archive_source)
+    except (zipfile.BadZipFile, RuntimeError) as exc:
+        fail(f"invalid ZIP archive {archive_source}: {exc}")
+
+
+def scan_tar_archive(data: bytes, archive_source: str) -> None:
+    total_uncompressed = 0
+    try:
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:*") as archive:
+            members = archive.getmembers()
+            if len(members) > MAX_ARCHIVE_ENTRIES:
+                fail(f"archive contains too many entries: {archive_source}")
+            for member in members:
+                validate_archive_member_name(member.name, archive_source)
+                if member.isdir():
+                    continue
+                if not member.isreg():
+                    fail(f"archive links and special files are not allowed: {archive_source}!{member.name}")
+                total_uncompressed += member.size
+                if total_uncompressed > MAX_ARCHIVE_UNCOMPRESSED_BYTES:
+                    fail(f"archive exceeds uncompressed size limit: {archive_source}")
+                extracted = archive.extractfile(member)
+                if extracted is None:
+                    fail(f"unable to read archive member: {archive_source}!{member.name}")
+                member_data = extracted.read(member.size + 1)
+                if len(member_data) != member.size:
+                    fail(f"archive member size mismatch: {archive_source}!{member.name}")
+                scan_archive_member(member_data, member.name, archive_source)
+    except (tarfile.TarError, EOFError) as exc:
+        fail(f"invalid TAR archive {archive_source}: {exc}")
+
+
+def scan_archive(path: Path, relative: Path) -> None:
+    if path.stat().st_size > MAX_ARCHIVE_COMPRESSED_BYTES:
+        fail(f"archive exceeds compressed size limit: {relative}")
+    data = path.read_bytes()
+    lower = path.name.lower()
+    if lower.endswith(".zip"):
+        scan_zip_archive(data, str(relative))
+    elif lower.endswith((".tar", ".tar.gz", ".tgz")):
+        scan_tar_archive(data, str(relative))
+    else:
+        fail(f"unsupported archive format in public tree: {relative}")
+
+
 def scan_public_tree() -> None:
-    """Scan every tracked-style public file, not only registered skill directories."""
+    """Scan every tracked-style public file, including supported archive contents."""
 
     for path in sorted(ROOT.rglob("*")):
         if should_ignore(path):
@@ -199,6 +314,11 @@ def scan_public_tree() -> None:
         relative = path.relative_to(ROOT)
         if path.name.lower() in FORBIDDEN_FILENAMES:
             fail(f"forbidden sensitive filename in public tree: {relative}")
+        if is_supported_archive_name(path.name):
+            scan_archive(path, relative)
+            continue
+        if path.suffix.lower() == ".gz":
+            fail(f"unsupported compressed artifact in public tree: {relative}")
         if path.suffix.lower() in BINARY_SUFFIXES:
             continue
 
@@ -209,11 +329,7 @@ def scan_public_tree() -> None:
             text = data.decode("utf-8")
         except UnicodeDecodeError:
             fail(f"public artifact is not UTF-8 text or an approved binary type: {relative}")
-
-        for label, pattern in FORBIDDEN_PATTERNS:
-            match = pattern.search(text)
-            if match:
-                fail(f"{label} detected in {relative}: {match.group(0)[:80]!r}")
+        scan_text(text, str(relative))
 
 
 def validate_release_evidence(entry: dict[str, Any], repository_license_status: str) -> None:
@@ -251,18 +367,26 @@ def validate_release_evidence(entry: dict[str, Any], repository_license_status: 
     if release_state == "public-released":
         if not entry.get("verification", "").strip():
             fail(f"public-released skill requires verification evidence: {skill_id}")
+        if "residuals" not in entry or not isinstance(entry["residuals"], list):
+            fail(f"public-released skill requires explicit residuals array: {skill_id}")
         if artifact_status == "package" and "package_sha256" not in entry:
             fail(f"packaged public-released skill requires package_sha256: {skill_id}")
 
 
 def validate_skill(entry: dict[str, Any], repository_license_status: str) -> None:
     skill_id = entry["id"]
+    expected_path = f"skills/{skill_id}"
     skill_dir = ROOT / entry["path"]
+    canonical = entry["canonical"]
 
     validate_release_evidence(entry, repository_license_status)
 
-    if entry["path"] != f"skills/{skill_id}":
-        fail(f"manifest path must be skills/{skill_id}")
+    if entry["path"] != expected_path:
+        fail(f"manifest path must be {expected_path}")
+    if canonical["path"] != expected_path:
+        fail(f"canonical path must be {expected_path}")
+    if canonical["version"] != entry["version"]:
+        fail(f"public projection version differs from canonical version for {skill_id}")
 
     if entry["release_state"] == "not-candidate" and not skill_dir.exists():
         if entry["artifact_status"] != "none":
@@ -317,15 +441,10 @@ def validate_skill(entry: dict[str, Any], repository_license_status: str) -> Non
     if entry["version"] != version:
         fail(f"manifest and SKILL.md version differ for {skill_id}")
 
-    canonical = entry["canonical"]
     if metadata["canonical_repository"] != canonical["repository"]:
         fail(f"SKILL.md canonical_repository differs from manifest for {skill_id}")
     if metadata["canonical_path"] != canonical["path"]:
         fail(f"SKILL.md canonical_path differs from manifest for {skill_id}")
-    if canonical["path"] != f"skills/{skill_id}":
-        fail(f"canonical path must be skills/{skill_id}")
-    if canonical["version"] != version:
-        fail(f"public projection version differs from canonical version for {skill_id}")
 
     changelog = (skill_dir / "CHANGELOG.md").read_text(encoding="utf-8")
     heading_pattern = rf"(?m)^##\s+(?:\[{re.escape(version)}\](?:\s|$)|{re.escape(version)}(?:\s|$))"
