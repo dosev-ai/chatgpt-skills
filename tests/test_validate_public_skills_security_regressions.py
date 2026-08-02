@@ -181,6 +181,21 @@ class PublicSkillSecurityRegressionTests(unittest.TestCase):
                 )
                 self.assertIn("GitHub token", output)
 
+    def test_later_concatenated_gzip_member_metadata_secret_is_rejected(self) -> None:
+        secret = ("gh" + "p_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890").encode("ascii")
+        member = tarfile.TarInfo("safe.txt")
+        raw_archive = self._tar_bytes(member)
+        split_at = len(raw_archive) // 2
+        archive_bytes = gzip.compress(raw_archive[:split_at]) + self._gzip_with_metadata(
+            raw_archive[split_at:], 0x10, secret
+        )
+        output = self._capture_failure(
+            lambda: self.validator.scan_tar_archive(
+                archive_bytes, "concatenated-gzip.tar.gz"
+            )
+        )
+        self.assertIn("GitHub token", output)
+
 
 if __name__ == "__main__":
     unittest.main()
