@@ -1,0 +1,60 @@
+name: Public skill defect or request
+description: Report a public-safe defect, documentation gap, or feature request.
+title: "[Public skill] "
+labels:
+  - public-intake
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for public-safe reports only. Do not include credentials, confidential project data, private repository content, personal data, private endpoints, or internal identifiers. Maintainers will route canonical changes through the private source repository.
+  - type: input
+    id: skill
+    attributes:
+      label: Skill ID and version
+      description: Identify the affected public skill and version.
+      placeholder: governed-prd-creation 1.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: report_type
+    attributes:
+      label: Report type
+      options:
+        - Defect
+        - Documentation gap
+        - Feature request
+        - Installation or invocation problem
+        - Public-safety concern
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: What happened?
+      description: Provide reproducible public-safe details and the observed result.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should happen?
+      description: State the expected public behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+      description: Include only steps and sample data that are safe to publish.
+    validations:
+      required: false
+  - type: checkboxes
+    id: safety
+    attributes:
+      label: Public-safety confirmation
+      options:
+        - label: I removed credentials, confidential data, private repository content, personal data, private endpoints, and internal identifiers.
+          required: true
+        - label: I understand maintainers may repair the private canonical source first and report only public-safe status here.
+          required: true

@@ -1,0 +1,162 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/dosev-ai/chatgpt-skills/schemas/public-skills-manifest.schema.json",
+  "title": "Public Skills Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "repository",
+    "naming",
+    "versioning",
+    "license_status",
+    "allowed_release_states",
+    "skills"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "default_branch",
+        "contribution_model",
+        "canonical_repository",
+        "required_checks"
+      ],
+      "properties": {
+        "name": {"const": "dosev-ai/chatgpt-skills"},
+        "default_branch": {"const": "main"},
+        "contribution_model": {"const": "pull-request-only"},
+        "canonical_repository": {"const": "deldos/skills"},
+        "required_checks": {
+          "const": ["Public Skill Validation", "Bot Comment Closure Rate"]
+        }
+      }
+    },
+    "naming": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["skill_id_pattern", "directory_pattern"],
+      "properties": {
+        "skill_id_pattern": {"const": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+        "directory_pattern": {"const": "skills/<skill-id>"}
+      }
+    },
+    "versioning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme"],
+      "properties": {
+        "scheme": {"const": "semver"}
+      }
+    },
+    "license_status": {
+      "enum": ["pending-owner-decision", "approved"]
+    },
+    "allowed_release_states": {
+      "const": [
+        "not-candidate",
+        "candidate-needs-sanitization",
+        "ready-for-public-pr",
+        "public-pr-open",
+        "public-merged-verification-pending",
+        "public-released"
+      ]
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "path",
+          "display_name",
+          "version",
+          "release_state",
+          "description",
+          "canonical",
+          "license",
+          "artifact_status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "path": {
+            "type": "string",
+            "pattern": "^skills/[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "display_name": {"type": "string", "minLength": 1},
+          "version": {
+            "type": "string",
+            "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-(?:(?:0|[1-9]\\d*)|(?:\\d*[A-Za-z-][0-9A-Za-z-]*))(?:\\.(?:(?:0|[1-9]\\d*)|(?:\\d*[A-Za-z-][0-9A-Za-z-]*)))*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+          },
+          "release_state": {
+            "enum": [
+              "not-candidate",
+              "candidate-needs-sanitization",
+              "ready-for-public-pr",
+              "public-pr-open",
+              "public-merged-verification-pending",
+              "public-released"
+            ]
+          },
+          "description": {"type": "string", "minLength": 1},
+          "canonical": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "repository",
+              "path",
+              "version",
+              "source_pr",
+              "final_pr_head",
+              "merge_commit"
+            ],
+            "properties": {
+              "repository": {"const": "deldos/skills"},
+              "path": {
+                "type": "string",
+                "pattern": "^skills/[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)"
+              },
+              "source_pr": {"type": "integer", "minimum": 1},
+              "final_pr_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+              "merge_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+            }
+          },
+          "license": {"type": "string", "minLength": 1},
+          "artifact_status": {"enum": ["none", "package"]},
+          "public_pr": {"type": "integer", "minimum": 1},
+          "public_merge_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+          "package_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "verification": {"type": "string", "minLength": 1},
+          "residuals": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "release_state": {"const": "public-released"}
+              },
+              "required": ["release_state"]
+            },
+            "then": {
+              "required": ["verification", "residuals"]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

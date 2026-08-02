@@ -1,0 +1,28 @@
+schema_version: 1
+repository:
+  name: dosev-ai/chatgpt-skills
+  default_branch: main
+  contribution_model: pull-request-only
+  canonical_repository: deldos/skills
+  required_checks:
+    - Public Skill Validation
+    - Bot Comment Closure Rate
+
+naming:
+  skill_id_pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+  directory_pattern: 'skills/<skill-id>'
+
+versioning:
+  scheme: semver
+
+license_status: approved
+
+allowed_release_states:
+  - not-candidate
+  - candidate-needs-sanitization
+  - ready-for-public-pr
+  - public-pr-open
+  - public-merged-verification-pending
+  - public-released
+
+skills: []
