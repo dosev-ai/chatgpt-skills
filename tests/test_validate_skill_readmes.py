@@ -201,6 +201,51 @@ class SkillReadmeValidatorTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must appear inside the Release status section", output)
 
+    def test_non_string_verification_fails_cleanly(self) -> None:
+        entry = self._entry(release_state="public-released")
+        entry["verification"] = None
+        self._write_manifest([entry])
+        self._write_readme(self._valid_readme(entry))
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("manifest verification must be text", output)
+
+    def test_non_list_residuals_fail_cleanly(self) -> None:
+        entry = self._entry(release_state="public-released")
+        entry["residuals"] = "none"
+        self._write_manifest([entry])
+        self._write_readme(self._valid_readme(entry))
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("manifest residuals must be a list", output)
+
+    def test_non_string_residual_item_fails_cleanly(self) -> None:
+        entry = self._entry(release_state="public-released")
+        entry["residuals"] = [7]
+        self._write_manifest([entry])
+        self._write_readme(self._valid_readme(entry))
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("manifest residuals must contain only text", output)
+
+    def test_duplicate_manifest_skill_ids_are_rejected(self) -> None:
+        entry = self._entry()
+        self._write_manifest([entry, dict(entry)])
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("duplicate skill ID: example-skill", output)
+
+    def test_symlinked_skill_directory_is_rejected(self) -> None:
+        target = self.root / "outside-skill"
+        target.mkdir()
+        self.validator.SKILLS_DIR.mkdir(parents=True)
+        (self.validator.SKILLS_DIR / "example-skill").symlink_to(
+            target, target_is_directory=True
+        )
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("public skill directory must not be a symlink", output)
+
 
 if __name__ == "__main__":
     unittest.main()
