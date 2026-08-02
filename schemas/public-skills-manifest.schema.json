@@ -140,7 +140,7 @@
           "verification": {"type": "string", "minLength": 1},
           "residuals": {
             "type": "array",
-            "items": {"type": "string", "minLength": 1}
+            "items": {"type": "string", "minLength": 1, "pattern": "\\S"}
           }
         },
         "allOf": [
