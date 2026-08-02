@@ -9,9 +9,12 @@ parity while preserving the established validation API.
 
 from __future__ import annotations
 
+import bz2
+import gzip
 import hashlib
 import importlib.util
 import io
+import lzma
 import sys
 import tarfile
 import zipfile
@@ -48,6 +51,7 @@ CANONICAL_LINEAGE_PREFIXES = (
     "- Canonical merge commit:",
 )
 APPROVED_PUBLIC_SKILL_LICENSE = "MIT"
+RAW_TAR_OVERHEAD_BYTES = (_base.MAX_ARCHIVE_ENTRIES + 8) * 1024
 EXPECTED_MIT_LICENSE = """MIT License
 
 Copyright (c) 2026 Delyan Dosev
@@ -157,9 +161,34 @@ def _scan_tar_metadata_mapping(mapping: Any, source: str) -> None:
         _scan_tar_metadata_value(value, f"{source}:{key}")
 
 
-def scan_tar_archive(data: bytes, archive_source: str) -> None:
-    """Scan TAR PAX, ownership, and link metadata before member inspection."""
+def _bounded_raw_tar_bytes(data: bytes, archive_source: str) -> bytes:
+    """Return bounded uncompressed TAR bytes so raw PAX records remain visible."""
 
+    limit = _base.MAX_ARCHIVE_UNCOMPRESSED_BYTES + RAW_TAR_OVERHEAD_BYTES
+    try:
+        if data.startswith(b"\x1f\x8b"):
+            with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
+                raw = stream.read(limit + 1)
+        elif data.startswith(b"BZh"):
+            with bz2.BZ2File(io.BytesIO(data)) as stream:
+                raw = stream.read(limit + 1)
+        elif data.startswith(b"\xfd7zXZ\x00"):
+            with lzma.LZMAFile(io.BytesIO(data)) as stream:
+                raw = stream.read(limit + 1)
+        else:
+            raw = data
+    except (EOFError, OSError, lzma.LZMAError) as exc:
+        _base.fail(f"invalid compressed TAR archive {archive_source}: {exc}")
+    if len(raw) > limit:
+        _base.fail(f"archive raw TAR stream exceeds size limit: {archive_source}")
+    return raw
+
+
+def scan_tar_archive(data: bytes, archive_source: str) -> None:
+    """Scan raw TAR records plus parsed PAX, ownership, and link metadata."""
+
+    raw = _bounded_raw_tar_bytes(data, archive_source)
+    scan_bytes_for_forbidden(raw, f"{archive_source}!raw-tar-stream")
     try:
         with tarfile.open(fileobj=io.BytesIO(data), mode="r:*") as archive:
             _scan_tar_metadata_mapping(
