@@ -115,7 +115,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
                 "final_pr_head": "a" * 40,
                 "merge_commit": "b" * 40,
             },
-            "license": "MIT" if release_state in merged_states else "pending",
+            "license": "MIT" if release_state in {"public-pr-open", *merged_states} else "pending",
             "artifact_status": artifact_status,
         }
         if release_state in {"public-pr-open", *merged_states}:
@@ -165,7 +165,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
             encoding="utf-8",
         )
 
-    def _write_zip(self, filename: str, members: dict[str, str]) -> None:
+    def _write_zip(self, filename: str, members: dict[str, str | bytes]) -> None:
         with zipfile.ZipFile(self.root / filename, "w") as archive:
             for name, content in members.items():
                 archive.writestr(name, content)
@@ -185,8 +185,9 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("0 registered skill directorie(s)", output)
 
-    def test_valid_public_pr_open_skill_passes(self) -> None:
-        manifest = self._base_manifest()
+    def test_valid_public_pr_open_skill_passes_with_approved_license(self) -> None:
+        self._approve_repository_license()
+        manifest = self._base_manifest(license_status="approved")
         entry = self._skill_entry()
         manifest["skills"].append(entry)
         self._write_skill(entry)
@@ -194,6 +195,16 @@ class PublicSkillValidatorTests(unittest.TestCase):
         code, output = self._run()
         self.assertEqual(code, 0)
         self.assertIn("1 registered skill directorie(s)", output)
+
+    def test_public_pr_open_requires_approved_repository_license(self) -> None:
+        manifest = self._base_manifest()
+        entry = self._skill_entry()
+        manifest["skills"].append(entry)
+        self._write_skill(entry)
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("public-pr-open requires approved repository license", output)
 
     def test_not_candidate_without_public_directory_passes(self) -> None:
         manifest = self._base_manifest()
@@ -296,7 +307,8 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertIn("private Action Production identifier", output)
 
     def test_private_identifier_in_skill_csv_is_rejected(self) -> None:
-        manifest = self._base_manifest()
+        self._approve_repository_license()
+        manifest = self._base_manifest(license_status="approved")
         entry = self._skill_entry()
         manifest["skills"].append(entry)
         self._write_skill(entry)
@@ -319,6 +331,33 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertIn("private Action Production identifier", output)
         self.assertIn("public-package.zip!references/data.csv", output)
 
+    def test_secret_inside_valid_png_is_rejected(self) -> None:
+        manifest = self._base_manifest()
+        token = "ghp_" + "A" * 20
+        (self.root / "cover.png").write_bytes(b"\x89PNG\r\n\x1a\n" + token.encode("ascii"))
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("GitHub token", output)
+
+    def test_plain_text_named_png_is_rejected(self) -> None:
+        manifest = self._base_manifest()
+        (self.root / "cover.png").write_text("not actually a PNG", encoding="utf-8")
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("does not match its declared format", output)
+
+    def test_secret_inside_zip_png_is_rejected(self) -> None:
+        manifest = self._base_manifest()
+        token = "sk-" + "B" * 20
+        payload = b"\x89PNG\r\n\x1a\n" + token.encode("ascii")
+        self._write_zip("public-package.zip", {"assets/cover.png": payload})
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("OpenAI-style secret key", output)
+
     def test_archive_path_traversal_is_rejected(self) -> None:
         manifest = self._base_manifest()
         self._write_zip("public-package.zip", {"../outside.txt": "public text"})
@@ -328,7 +367,8 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertIn("unsafe archive member path", output)
 
     def test_unlabeled_readme_lineage_is_rejected(self) -> None:
-        manifest = self._base_manifest()
+        self._approve_repository_license()
+        manifest = self._base_manifest(license_status="approved")
         entry = self._skill_entry()
         manifest["skills"].append(entry)
         self._write_skill(entry)
