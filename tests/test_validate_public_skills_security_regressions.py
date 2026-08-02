@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import importlib.util
 import io
+import tarfile
 import unittest
 from pathlib import Path
 from types import ModuleType
@@ -37,6 +38,13 @@ class PublicSkillSecurityRegressionTests(unittest.TestCase):
         with self.assertRaises(SystemExit):
             with contextlib.redirect_stdout(output):
                 callback()
+        return output.getvalue()
+
+    def _tar_bytes(self, member: tarfile.TarInfo, payload: bytes = b"safe") -> bytes:
+        output = io.BytesIO()
+        member.size = len(payload)
+        with tarfile.open(fileobj=output, mode="w", format=tarfile.PAX_FORMAT) as archive:
+            archive.addfile(member, io.BytesIO(payload))
         return output.getvalue()
 
     def test_candidate_directory_requires_approved_repository_license(self) -> None:
@@ -75,6 +83,26 @@ class PublicSkillSecurityRegressionTests(unittest.TestCase):
             lambda: self.validator.scan_binary(payload, ".png", "late-secret.png")
         )
         self.assertIn("GitHub token", output)
+
+    def test_tar_pax_header_secret_is_rejected(self) -> None:
+        secret = "gh" + "p_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+        member = tarfile.TarInfo("safe.txt")
+        member.pax_headers = {"comment": secret}
+        archive_bytes = self._tar_bytes(member)
+        output = self._capture_failure(
+            lambda: self.validator.scan_tar_archive(archive_bytes, "metadata.tar")
+        )
+        self.assertIn("GitHub token", output)
+
+    def test_tar_ownership_metadata_private_identifier_is_rejected(self) -> None:
+        private_id = "action-" + "1234567890123-123456-deadbeef-cafe"
+        member = tarfile.TarInfo("safe.txt")
+        member.uname = private_id
+        archive_bytes = self._tar_bytes(member)
+        output = self._capture_failure(
+            lambda: self.validator.scan_tar_archive(archive_bytes, "ownership.tar")
+        )
+        self.assertIn("private Action Production identifier", output)
 
 
 if __name__ == "__main__":
