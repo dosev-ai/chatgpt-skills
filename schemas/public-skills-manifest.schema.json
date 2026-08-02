@@ -142,7 +142,20 @@
             "type": "array",
             "items": {"type": "string", "minLength": 1}
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "release_state": {"const": "public-released"}
+              },
+              "required": ["release_state"]
+            },
+            "then": {
+              "required": ["verification", "residuals"]
+            }
+          }
+        ]
       }
     }
   }
