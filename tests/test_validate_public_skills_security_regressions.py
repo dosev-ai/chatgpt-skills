@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import gzip
 import importlib.util
 import io
 import tarfile
@@ -45,6 +46,31 @@ class PublicSkillSecurityRegressionTests(unittest.TestCase):
         member.size = len(payload)
         with tarfile.open(fileobj=output, mode="w", format=tarfile.PAX_FORMAT) as archive:
             archive.addfile(member, io.BytesIO(payload))
+        return output.getvalue()
+
+    def _pax_record(self, key: str, value: str) -> bytes:
+        body = f"{key}={value}\n".encode("utf-8")
+        length = len(body) + 2
+        while True:
+            record = f"{length} ".encode("ascii") + body
+            if len(record) == length:
+                return record
+            length = len(record)
+
+    def _duplicate_pax_tar_bytes(self) -> bytes:
+        secret = "gh" + "p_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+        pax_payload = self._pax_record("comment", secret) + self._pax_record(
+            "comment", "safe"
+        )
+        output = io.BytesIO()
+        with tarfile.open(fileobj=output, mode="w", format=tarfile.USTAR_FORMAT) as archive:
+            pax_member = tarfile.TarInfo("././@PaxHeader")
+            pax_member.type = tarfile.XHDTYPE
+            pax_member.size = len(pax_payload)
+            archive.addfile(pax_member, io.BytesIO(pax_payload))
+            member = tarfile.TarInfo("safe.txt")
+            member.size = 4
+            archive.addfile(member, io.BytesIO(b"safe"))
         return output.getvalue()
 
     def test_candidate_directory_requires_approved_repository_license(self) -> None:
@@ -103,6 +129,20 @@ class PublicSkillSecurityRegressionTests(unittest.TestCase):
             lambda: self.validator.scan_tar_archive(archive_bytes, "ownership.tar")
         )
         self.assertIn("private Action Production identifier", output)
+
+    def test_duplicate_pax_key_secret_is_rejected_before_dictionary_collapse(self) -> None:
+        raw_archive = self._duplicate_pax_tar_bytes()
+        for archive_bytes, source in (
+            (raw_archive, "duplicate-pax.tar"),
+            (gzip.compress(raw_archive), "duplicate-pax.tar.gz"),
+        ):
+            with self.subTest(source=source):
+                output = self._capture_failure(
+                    lambda data=archive_bytes, name=source: self.validator.scan_tar_archive(
+                        data, name
+                    )
+                )
+                self.assertIn("GitHub token", output)
 
 
 if __name__ == "__main__":
