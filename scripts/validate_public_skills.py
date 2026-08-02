@@ -2,8 +2,9 @@
 """Hardened entrypoint for downstream public skill validation.
 
 The reviewed baseline implementation is retained in ``validate_public_skills_base``.
-This entrypoint adds alignment-safe binary scanning and section-scoped canonical
-lineage validation while preserving the established validation API used by tests.
+This entrypoint adds alignment-safe binary scanning, section-scoped canonical
+lineage validation, cache-path scanning, MIT-only public licensing, and
+nonblank release residuals while preserving the established validation API.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ SCHEMA = _base.SCHEMA
 SKILLS_DIR = _base.SKILLS_DIR
 
 _original_validate_skill = _base.validate_skill
+_original_validate_release_evidence = _base.validate_release_evidence
 
 CANONICAL_LINEAGE_PREFIXES = (
     "- Canonical repository:",
@@ -34,6 +36,7 @@ CANONICAL_LINEAGE_PREFIXES = (
     "- Canonical final PR HEAD:",
     "- Canonical merge commit:",
 )
+APPROVED_PUBLIC_SKILL_LICENSE = "MIT"
 
 
 def _sync_paths() -> None:
@@ -45,6 +48,16 @@ def _sync_paths() -> None:
     _base.SKILLS_DIR = SKILLS_DIR
 
 
+def should_ignore(path: Path) -> bool:
+    """Ignore Git metadata only; cache-named paths may contain tracked public files."""
+
+    try:
+        relative = path.relative_to(ROOT)
+    except ValueError:
+        return True
+    return ".git" in relative.parts
+
+
 def scan_bytes_for_forbidden(data: bytes, source: str) -> None:
     """Scan ASCII and both UTF-16 byte orders at both possible alignments."""
 
@@ -53,6 +66,38 @@ def scan_bytes_for_forbidden(data: bytes, source: str) -> None:
         aligned = data[offset:]
         _base.scan_text(aligned.decode("utf-16-le", errors="ignore"), source)
         _base.scan_text(aligned.decode("utf-16-be", errors="ignore"), source)
+
+
+def validate_release_evidence(
+    entry: dict[str, Any], repository_license_status: str, has_public_directory: bool
+) -> None:
+    """Apply baseline evidence checks plus the approved MIT and residual contracts."""
+
+    _original_validate_release_evidence(entry, repository_license_status, has_public_directory)
+
+    release_state = entry["release_state"]
+    licensed_states = {
+        "public-pr-open",
+        "public-merged-verification-pending",
+        "public-released",
+    }
+    if has_public_directory or release_state in licensed_states:
+        if entry["license"].strip() != APPROVED_PUBLIC_SKILL_LICENSE:
+            _base.fail(
+                f"public skill directory requires per-skill license "
+                f"{APPROVED_PUBLIC_SKILL_LICENSE}: {entry['id']}"
+            )
+
+    if release_state == "public-released":
+        residuals = entry.get("residuals")
+        if not isinstance(residuals, list) or any(
+            not isinstance(residual, str) or not residual.strip()
+            for residual in residuals
+        ):
+            _base.fail(
+                f"public-released skill residuals must contain only nonblank text: "
+                f"{entry['id']}"
+            )
 
 
 def _section_indices(lines: list[str], heading: str, skill_id: str) -> set[int]:
@@ -119,7 +164,9 @@ def validate_skill(entry: dict[str, Any], repository_license_status: str) -> Non
     validate_canonical_lineage(lines, entry["canonical"], entry["id"])
 
 
+_base.should_ignore = should_ignore
 _base.scan_bytes_for_forbidden = scan_bytes_for_forbidden
+_base.validate_release_evidence = validate_release_evidence
 _base.validate_skill = validate_skill
 
 
