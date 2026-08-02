@@ -78,7 +78,7 @@ class PublicSkillPolicyHardeningTests(unittest.TestCase):
             "license": "MIT",
             "public_pr": 7,
             "public_merge_commit": "c" * 40,
-            "verification": "Clean-room invocation passed.",
+            "verification": "PASS: Clean-room invocation completed successfully.",
             "residuals": [" "],
         }
         output = self._capture_failure(
