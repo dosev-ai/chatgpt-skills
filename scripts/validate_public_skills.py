@@ -194,14 +194,21 @@ def validate_root_contract(manifest: dict[str, Any]) -> None:
         _base.fail("approved repository LICENSE does not match the governed MIT terms")
 
 
-def validate_package_evidence(entry: dict[str, Any]) -> None:
-    """Verify the deterministic public package and its recorded SHA-256."""
+def package_path_for(entry: dict[str, Any]) -> Path:
+    """Return the governed deterministic package path and verify root containment."""
 
     package_path = ROOT / entry["path"] / "skill.zip"
     try:
         package_path.resolve().relative_to(ROOT.resolve())
     except ValueError:
         _base.fail(f"public package path escapes repository root: {entry['id']}")
+    return package_path
+
+
+def validate_package_evidence(entry: dict[str, Any]) -> None:
+    """Verify the deterministic public package and its recorded SHA-256."""
+
+    package_path = package_path_for(entry)
     if package_path.is_symlink() or not package_path.is_file():
         _base.fail(
             f"recorded public package requires regular artifact "
@@ -232,6 +239,8 @@ def has_affirmative_verification(value: Any) -> bool:
         "not verified",
         "not run",
         "not-run",
+        "not passed",
+        "did not pass",
         "tbd",
         "todo",
     )
@@ -262,6 +271,12 @@ def validate_release_evidence(
                 f"{APPROVED_PUBLIC_SKILL_LICENSE}: {entry['id']}"
             )
 
+    package_path = package_path_for(entry)
+    if entry["artifact_status"] == "none" and package_path.exists():
+        _base.fail(
+            f"artifact_status none requires absence of {entry['path']}/skill.zip: "
+            f"{entry['id']}"
+        )
     if "package_sha256" in entry:
         validate_package_evidence(entry)
 
