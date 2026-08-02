@@ -31,7 +31,7 @@ jobs:
       group: bot-comment-gate-${{ github.event.pull_request.number || github.event.issue.number || inputs.pr_number }}
       cancel-in-progress: true
     steps:
-      - name: Check automated review dispositions and exact head
+      - name: Check automated review dispositions, thread resolution and exact head
         env:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
@@ -42,7 +42,8 @@ jobs:
           issue_comments_file=$(mktemp)
           reviews_file=$(mktemp)
           files_file=$(mktemp)
-          trap 'rm -f "$comments_file" "$issue_comments_file" "$reviews_file" "$files_file"' EXIT
+          threads_file=$(mktemp)
+          trap 'rm -f "$comments_file" "$issue_comments_file" "$reviews_file" "$files_file" "$threads_file"' EXIT
 
           gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/comments" --slurp > "$comments_file"
           gh api --paginate "repos/$REPO/issues/$PR_NUMBER/comments" --slurp > "$issue_comments_file"
@@ -76,6 +77,48 @@ jobs:
 
           if [ "$(jq length <<<"$missing")" -ne 0 ]; then
             echo "Undispositioned or invalidly dispositioned bot review comments: $missing"
+            exit 1
+          fi
+
+          owner=${REPO%%/*}
+          name=${REPO#*/}
+          printf '[]\n' > "$threads_file"
+          cursor=""
+          while :; do
+            if [ -n "$cursor" ]; then
+              response=$(gh api graphql \
+                -f query='query($owner:String!,$name:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100,after:$cursor){nodes{isResolved comments(first:1){nodes{databaseId author{login}}}} pageInfo{hasNextPage endCursor}}}}}' \
+                -F owner="$owner" -F name="$name" -F number="$PR_NUMBER" -f cursor="$cursor")
+            else
+              response=$(gh api graphql \
+                -f query='query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:1){nodes{databaseId author{login}}}} pageInfo{hasNextPage endCursor}}}}}' \
+                -F owner="$owner" -F name="$name" -F number="$PR_NUMBER")
+            fi
+
+            nodes=$(jq '.data.repository.pullRequest.reviewThreads.nodes // []' <<<"$response")
+            jq --argjson nodes "$nodes" '. + $nodes' "$threads_file" > "$threads_file.next"
+            mv "$threads_file.next" "$threads_file"
+
+            has_next=$(jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage' <<<"$response")
+            if [ "$has_next" != "true" ]; then
+              break
+            fi
+            cursor=$(jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // empty' <<<"$response")
+            if [ -z "$cursor" ]; then
+              echo "Review-thread pagination reported another page without a cursor."
+              exit 1
+            fi
+          done
+
+          unresolved=$(jq --argjson bots "$bot_logins" '
+            [.[] |
+              select(.isResolved == false) |
+              select(.comments.nodes[0].author.login as $u | $bots | index($u)) |
+              .comments.nodes[0].databaseId]
+          ' "$threads_file")
+
+          if [ "$(jq length <<<"$unresolved")" -ne 0 ]; then
+            echo "Unresolved automated review threads: $unresolved"
             exit 1
           fi
 
