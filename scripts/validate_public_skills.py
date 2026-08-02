@@ -10,8 +10,14 @@ nonblank release residuals while preserving the established validation API.
 from __future__ import annotations
 
 import importlib.util
+import sys
 from pathlib import Path
 from typing import Any
+
+# Loading the baseline must not generate untracked bytecode inside a cache-named
+# directory before the complete-tree scan runs. Tracked files in those paths are
+# still scanned because ``should_ignore`` excludes Git metadata only.
+sys.dont_write_bytecode = True
 
 _BASE_PATH = Path(__file__).with_name("validate_public_skills_base.py")
 _SPEC = importlib.util.spec_from_file_location("_validate_public_skills_base", _BASE_PATH)
