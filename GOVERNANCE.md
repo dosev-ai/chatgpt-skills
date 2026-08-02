@@ -33,9 +33,11 @@ The Bot Comment Gate runs through `pull_request_target` from the protected base 
 
 Foundation bootstrap exception: the pull request that first installs the protected workflow cannot be validated by that not-yet-merged base-branch workflow. It requires independent exact-head automated review, successful structural validation, resolved findings, and explicit maintainer merge approval. The exception ends immediately after the workflow is merged to `main`.
 
-## Inbound contribution boundary
+## License and inbound contribution boundary
 
-Until the repository owner approves both a public license and an inbound contribution grant, only maintainer-controlled canonical projections may be merged. Public users may submit public-safe issue reports, but third-party-authored skill content or substantive patches are not accepted.
+The repository owner approved the standard MIT License for public skill editions. Copies or substantial portions must preserve the copyright and license notice. The content is provided as-is without warranty under the standard MIT terms.
+
+The initial contribution model remains maintainer-controlled. Public users may submit public-safe issue reports, but unsolicited third-party-authored skill content or substantive patches are not accepted. A DCO, CLA, or equivalent inbound contribution policy must be separately approved before third-party substantive contributions are enabled.
 
 ## Change direction
 
