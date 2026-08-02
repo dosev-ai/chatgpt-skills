@@ -13,6 +13,7 @@ import hashlib
 import importlib.util
 import io
 import sys
+import tarfile
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -32,6 +33,7 @@ SCHEMA = _base.SCHEMA
 SKILLS_DIR = _base.SKILLS_DIR
 
 _original_scan_zip_archive = _base.scan_zip_archive
+_original_scan_tar_archive = _base.scan_tar_archive
 _original_validate_archive_member_name = _base.validate_archive_member_name
 _original_validate_root_contract = _base.validate_root_contract
 _original_validate_skill = _base.validate_skill
@@ -51,7 +53,7 @@ EXPECTED_MIT_LICENSE = """MIT License
 Copyright (c) 2026 Delyan Dosev
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the \"Software\"), to deal
+of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
 to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
 copies of the Software, and to permit persons to whom the Software is
@@ -60,7 +62,7 @@ furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
 AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
@@ -136,6 +138,48 @@ def scan_zip_archive(data: bytes, archive_source: str) -> None:
     except (zipfile.BadZipFile, RuntimeError) as exc:
         _base.fail(f"invalid ZIP archive {archive_source}: {exc}")
     _original_scan_zip_archive(data, archive_source)
+
+
+def _scan_tar_metadata_value(value: Any, source: str) -> None:
+    if value is None:
+        return
+    if isinstance(value, bytes):
+        scan_bytes_for_forbidden(value, source)
+        return
+    _base.scan_text(str(value), source)
+
+
+def _scan_tar_metadata_mapping(mapping: Any, source: str) -> None:
+    if not isinstance(mapping, dict):
+        return
+    for key, value in mapping.items():
+        _scan_tar_metadata_value(key, f"{source}:key")
+        _scan_tar_metadata_value(value, f"{source}:{key}")
+
+
+def scan_tar_archive(data: bytes, archive_source: str) -> None:
+    """Scan TAR PAX, ownership, and link metadata before member inspection."""
+
+    try:
+        with tarfile.open(fileobj=io.BytesIO(data), mode="r:*") as archive:
+            _scan_tar_metadata_mapping(
+                getattr(archive, "pax_headers", {}),
+                f"{archive_source}!global-pax",
+            )
+            for member in archive.getmembers():
+                member_source = f"{archive_source}!{member.name}"
+                for field in ("name", "linkname", "uname", "gname"):
+                    _scan_tar_metadata_value(
+                        getattr(member, field, None),
+                        f"{member_source}:{field}",
+                    )
+                _scan_tar_metadata_mapping(
+                    getattr(member, "pax_headers", {}),
+                    f"{member_source}:pax",
+                )
+    except (tarfile.TarError, EOFError) as exc:
+        _base.fail(f"invalid TAR archive {archive_source}: {exc}")
+    _original_scan_tar_archive(data, archive_source)
 
 
 def scan_public_tree() -> None:
@@ -387,6 +431,7 @@ _base.scan_bytes_for_forbidden = scan_bytes_for_forbidden
 _base.validate_archive_member_name = validate_archive_member_name
 _base.scan_archive_member = scan_archive_member
 _base.scan_zip_archive = scan_zip_archive
+_base.scan_tar_archive = scan_tar_archive
 _base.scan_public_tree = scan_public_tree
 _base.validate_root_contract = validate_root_contract
 _base.validate_release_evidence = validate_release_evidence
