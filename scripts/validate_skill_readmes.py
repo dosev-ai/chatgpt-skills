@@ -23,6 +23,13 @@ REQUIRED_HEADINGS = (
     "## Canonical lineage",
     "## Release status",
 )
+RELEASE_FIELD_PREFIXES = (
+    "- Public release state:",
+    "- Public pull request:",
+    "- Artifact status:",
+    "- Clean-room verification:",
+    "- Known residuals:",
+)
 
 
 def fail(message: str) -> None:
@@ -37,6 +44,15 @@ def section_body(lines: list[str], heading_index: int) -> str:
             break
         body.append(line)
     return "\n".join(body).strip()
+
+
+def section_range(lines: list[str], heading_index: int) -> range:
+    end = len(lines)
+    for index in range(heading_index + 1, len(lines)):
+        if lines[index].startswith("## "):
+            end = index
+            break
+    return range(heading_index + 1, end)
 
 
 def expected_release_lines(entry: dict[str, Any]) -> tuple[str, ...]:
@@ -57,6 +73,36 @@ def expected_release_lines(entry: dict[str, Any]) -> tuple[str, ...]:
         f"- Clean-room verification: `{verification}`",
         f"- Known residuals: `{residual_text}`",
     )
+
+
+def validate_release_section(
+    lines: list[str], release_heading_index: int, entry: dict[str, Any], skill_id: str
+) -> None:
+    release_indices = set(section_range(lines, release_heading_index))
+    expected_by_prefix = dict(zip(RELEASE_FIELD_PREFIXES, expected_release_lines(entry)))
+
+    for prefix, expected in expected_by_prefix.items():
+        matches = [
+            (index, line)
+            for index, line in enumerate(lines)
+            if line.startswith(prefix)
+        ]
+        if len(matches) != 1:
+            fail(
+                f"README.md requires exactly one {prefix!r} field for {skill_id}; "
+                f"found {len(matches)}"
+            )
+        index, actual = matches[0]
+        if index not in release_indices:
+            fail(
+                f"README.md field {prefix!r} must appear inside the Release status "
+                f"section for {skill_id}"
+            )
+        if actual != expected:
+            fail(
+                f"README.md release status differs from manifest for {skill_id}: "
+                f"expected {expected!r}, found {actual!r}"
+            )
 
 
 def validate_readme(skill_dir: Path, entry: dict[str, Any]) -> None:
@@ -85,13 +131,7 @@ def validate_readme(skill_dir: Path, entry: dict[str, Any]) -> None:
     if positions != sorted(positions):
         fail(f"README.md required sections are out of order: {skill_dir.name}")
 
-    line_set = set(lines)
-    for expected in expected_release_lines(entry):
-        if expected not in line_set:
-            fail(
-                f"README.md release status differs from manifest for {skill_dir.name}: "
-                f"missing {expected!r}"
-            )
+    validate_release_section(lines, positions[-1], entry, skill_dir.name)
 
 
 def load_manifest_entries() -> dict[str, dict[str, Any]]:
