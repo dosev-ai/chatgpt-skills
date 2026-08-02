@@ -2,7 +2,7 @@ schema_version: 1
 repository:
   name: dosev-ai/chatgpt-skills
   default_branch: main
-  contribution_model: pull-request-only
+  contribution_model: maintainer-controlled-with-public-issues
   canonical_repository: deldos/skills
   required_checks:
     - Public Skill Validation
@@ -15,7 +15,7 @@ naming:
 versioning:
   scheme: semver
 
-license_status: pending-owner-decision
+license_status: approved
 
 allowed_release_states:
   - not-candidate
