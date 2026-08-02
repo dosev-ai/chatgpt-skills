@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import importlib.util
 import io
 import tempfile
@@ -55,7 +56,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
 
     def _approve_repository_license(self) -> None:
         (self.root / "LICENSE").write_text(
-            "Public test license terms. " * 8,
+            self.validator.EXPECTED_MIT_LICENSE,
             encoding="utf-8",
         )
 
@@ -137,6 +138,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
             "---\n"
             "name: example-skill\n"
             "description: Public validation fixture.\n"
+            f"license: {entry['license']}\n"
             "metadata:\n"
             f"  version: {entry['version']}\n"
             f"  canonical_repository: {canonical['repository']}\n"
@@ -288,10 +290,13 @@ class PublicSkillValidatorTests(unittest.TestCase):
         entry = self._skill_entry(
             release_state="public-released",
             artifact_status="package",
-            include_package_hash=True,
         )
         manifest["skills"].append(entry)
         self._write_skill(entry)
+        package_path = self.root / entry["path"] / "skill.zip"
+        with zipfile.ZipFile(package_path, "w") as archive:
+            archive.writestr("SKILL.md", "public package fixture\n")
+        entry["package_sha256"] = hashlib.sha256(package_path.read_bytes()).hexdigest()
         self._write_manifest(manifest)
         code, output = self._run()
         self.assertEqual(code, 0)
