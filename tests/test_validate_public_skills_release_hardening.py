@@ -59,6 +59,7 @@ class PublicSkillReleaseHardeningTests(unittest.TestCase):
     def test_public_released_rejects_pending_verification(self) -> None:
         entry = {
             "id": "example-skill",
+            "path": "skills/example-skill",
             "release_state": "public-released",
             "artifact_status": "none",
             "license": "MIT",
@@ -75,6 +76,7 @@ class PublicSkillReleaseHardeningTests(unittest.TestCase):
     def test_public_released_rejects_explicit_failed_verification(self) -> None:
         entry = {
             "id": "example-skill",
+            "path": "skills/example-skill",
             "release_state": "public-released",
             "artifact_status": "none",
             "license": "MIT",
