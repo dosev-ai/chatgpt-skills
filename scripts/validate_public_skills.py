@@ -161,12 +161,60 @@ def _scan_tar_metadata_mapping(mapping: Any, source: str) -> None:
         _scan_tar_metadata_value(value, f"{source}:{key}")
 
 
+def _read_gzip_c_string(data: bytes, index: int, source: str) -> int:
+    end = data.find(b"\x00", index)
+    if end < 0:
+        _base.fail(f"unterminated gzip metadata field in {source}")
+    scan_bytes_for_forbidden(data[index:end], source)
+    return end + 1
+
+
+def _scan_gzip_wrapper_metadata(data: bytes, archive_source: str) -> None:
+    """Scan optional gzip wrapper fields before decompression strips them."""
+
+    if len(data) < 10 or not data.startswith(b"\x1f\x8b"):
+        _base.fail(f"invalid gzip header in {archive_source}")
+    if data[2] != 8:
+        _base.fail(f"unsupported gzip compression method in {archive_source}")
+    flags = data[3]
+    if flags & 0xE0:
+        _base.fail(f"reserved gzip flags are set in {archive_source}")
+    index = 10
+    if flags & 0x04:
+        if index + 2 > len(data):
+            _base.fail(f"truncated gzip extra-length field in {archive_source}")
+        extra_length = int.from_bytes(data[index : index + 2], "little")
+        index += 2
+        if index + extra_length > len(data):
+            _base.fail(f"truncated gzip extra field in {archive_source}")
+        scan_bytes_for_forbidden(
+            data[index : index + extra_length],
+            f"{archive_source}!gzip-extra",
+        )
+        index += extra_length
+    if flags & 0x08:
+        index = _read_gzip_c_string(
+            data,
+            index,
+            f"{archive_source}!gzip-filename",
+        )
+    if flags & 0x10:
+        index = _read_gzip_c_string(
+            data,
+            index,
+            f"{archive_source}!gzip-comment",
+        )
+    if flags & 0x02 and index + 2 > len(data):
+        _base.fail(f"truncated gzip header CRC in {archive_source}")
+
+
 def _bounded_raw_tar_bytes(data: bytes, archive_source: str) -> bytes:
     """Return bounded uncompressed TAR bytes so raw PAX records remain visible."""
 
     limit = _base.MAX_ARCHIVE_UNCOMPRESSED_BYTES + RAW_TAR_OVERHEAD_BYTES
     try:
         if data.startswith(b"\x1f\x8b"):
+            _scan_gzip_wrapper_metadata(data, archive_source)
             with gzip.GzipFile(fileobj=io.BytesIO(data)) as stream:
                 raw = stream.read(limit + 1)
         elif data.startswith(b"BZh"):
