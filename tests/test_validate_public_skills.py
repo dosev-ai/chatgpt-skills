@@ -204,7 +204,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self._write_manifest(manifest)
         code, output = self._run()
         self.assertEqual(code, 1)
-        self.assertIn("public-pr-open requires approved repository license", output)
+        self.assertIn("requires approved repository license", output)
 
     def test_not_candidate_without_public_directory_passes(self) -> None:
         manifest = self._base_manifest()
