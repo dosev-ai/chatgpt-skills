@@ -5,6 +5,7 @@ import importlib.util
 import io
 import tempfile
 import unittest
+import zipfile
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -123,6 +124,7 @@ class PublicSkillValidatorTests(unittest.TestCase):
             entry["public_merge_commit"] = "c" * 40
         if release_state == "public-released":
             entry["verification"] = "Clean-room invocation passed."
+            entry["residuals"] = []
         if include_package_hash:
             entry["package_sha256"] = "d" * 64
         return entry
@@ -163,6 +165,11 @@ class PublicSkillValidatorTests(unittest.TestCase):
             encoding="utf-8",
         )
 
+    def _write_zip(self, filename: str, members: dict[str, str]) -> None:
+        with zipfile.ZipFile(self.root / filename, "w") as archive:
+            for name, content in members.items():
+                archive.writestr(name, content)
+
     def _run(self) -> tuple[int, str]:
         output = io.StringIO()
         try:
@@ -198,6 +205,28 @@ class PublicSkillValidatorTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("0 registered skill directorie(s)", output)
 
+    def test_not_candidate_rejects_mismatched_canonical_path(self) -> None:
+        manifest = self._base_manifest()
+        entry = self._skill_entry(release_state="not-candidate")
+        entry["license"] = "not-applicable"
+        entry["canonical"]["path"] = "skills/different-skill"
+        manifest["skills"].append(entry)
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("canonical path must be skills/example-skill", output)
+
+    def test_not_candidate_rejects_mismatched_canonical_version(self) -> None:
+        manifest = self._base_manifest()
+        entry = self._skill_entry(release_state="not-candidate")
+        entry["license"] = "not-applicable"
+        entry["canonical"]["version"] = "1.2.2"
+        manifest["skills"].append(entry)
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("differs from canonical version", output)
+
     def test_public_released_requires_approved_repository_license(self) -> None:
         manifest = self._base_manifest(license_status="pending-owner-decision")
         entry = self._skill_entry(release_state="public-released")
@@ -207,6 +236,18 @@ class PublicSkillValidatorTests(unittest.TestCase):
         code, output = self._run()
         self.assertEqual(code, 1)
         self.assertIn("requires approved repository license", output)
+
+    def test_public_released_requires_explicit_residuals(self) -> None:
+        self._approve_repository_license()
+        manifest = self._base_manifest(license_status="approved")
+        entry = self._skill_entry(release_state="public-released")
+        del entry["residuals"]
+        manifest["skills"].append(entry)
+        self._write_skill(entry)
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("residuals", output)
 
     def test_public_released_without_package_passes(self) -> None:
         self._approve_repository_license()
@@ -267,6 +308,24 @@ class PublicSkillValidatorTests(unittest.TestCase):
         code, output = self._run()
         self.assertEqual(code, 1)
         self.assertIn("private Action Production identifier", output)
+
+    def test_private_identifier_inside_zip_is_rejected(self) -> None:
+        manifest = self._base_manifest()
+        private_id = "action-" + "1785621210329" + "-210329-" + "c1a4b863" + "-2ad5"
+        self._write_zip("public-package.zip", {"references/data.csv": f"id\n{private_id}\n"})
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("private Action Production identifier", output)
+        self.assertIn("public-package.zip!references/data.csv", output)
+
+    def test_archive_path_traversal_is_rejected(self) -> None:
+        manifest = self._base_manifest()
+        self._write_zip("public-package.zip", {"../outside.txt": "public text"})
+        self._write_manifest(manifest)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("unsafe archive member path", output)
 
     def test_unlabeled_readme_lineage_is_rejected(self) -> None:
         manifest = self._base_manifest()
