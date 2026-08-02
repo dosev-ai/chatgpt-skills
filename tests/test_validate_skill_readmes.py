@@ -175,6 +175,32 @@ class SkillReadmeValidatorTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("release status differs from manifest", output)
 
+    def test_duplicate_release_field_outside_section_is_rejected(self) -> None:
+        entry = self._entry()
+        self._write_manifest([entry])
+        content = self._valid_readme(entry).replace(
+            "Specific content for benefits.",
+            "Specific content for benefits.\n\n- Public release state: `public-pr-open`",
+        )
+        self._write_readme(content)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("requires exactly one '- Public release state:' field", output)
+
+    def test_release_field_only_outside_section_is_rejected(self) -> None:
+        entry = self._entry()
+        self._write_manifest([entry])
+        expected = "- Artifact status: `none`"
+        content = self._valid_readme(entry).replace(expected + "\n", "")
+        content = content.replace(
+            "Specific content for benefits.",
+            f"Specific content for benefits.\n\n{expected}",
+        )
+        self._write_readme(content)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("must appear inside the Release status section", output)
+
 
 if __name__ == "__main__":
     unittest.main()
