@@ -26,6 +26,7 @@ class PublicSkillSecurityRegressionTests(unittest.TestCase):
     def _release_entry(self, release_state: str, license_value: str = "pending") -> dict[str, object]:
         return {
             "id": "example-skill",
+            "path": "skills/example-skill",
             "release_state": release_state,
             "artifact_status": "none",
             "license": license_value,
