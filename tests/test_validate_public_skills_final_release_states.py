@@ -48,7 +48,7 @@ class PublicSkillFinalReleaseStateTests(unittest.TestCase):
         output = self._capture_failure(
             lambda: self.validator.validate_release_evidence(entry, "approved", True)
         )
-        self.assertIn("affirmative clean-room verification evidence", output)
+        self.assertIn("structured PASS verification evidence", output)
 
     def test_artifact_status_none_rejects_designated_package(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -76,7 +76,7 @@ class PublicSkillFinalReleaseStateTests(unittest.TestCase):
                     "license": "MIT",
                     "public_pr": 7,
                     "public_merge_commit": "c" * 40,
-                    "verification": "Clean-room invocation passed.",
+                    "verification": "PASS: Clean-room invocation completed successfully.",
                     "residuals": [],
                 }
                 output = self._capture_failure(
@@ -92,7 +92,7 @@ class PublicSkillFinalReleaseStateTests(unittest.TestCase):
                     self.validator.SKILLS_DIR,
                 ) = previous
                 self.validator._sync_paths()
-        self.assertIn("artifact_status none requires absence", output)
+        self.assertIn("artifact_status none requires no archive artifacts", output)
 
 
 if __name__ == "__main__":
