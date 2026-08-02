@@ -1,33 +1,42 @@
 # License Status
 
-No repository license or inbound contribution grant has been selected or approved yet.
+The repository owner approved the standard MIT License for public skill editions on 2026-08-02.
 
-## Current effect
+## Approved outbound license
 
-- The repository and draft pull requests are publicly visible.
-- Visibility does not grant a general reuse, modification, or redistribution license.
-- No skill may be merged as a public projection or classified as `public-released` until an owner-approved license and any required third-party attribution are added.
-- Third-party-authored skill content, assets, examples, scripts, and substantive patches are not accepted while the inbound contribution terms remain undefined.
-- Public-safe defect reports and feature requests remain welcome through the issue tracker; maintainers route canonical changes through the private source repository.
+- SPDX identifier: `MIT`
+- Copyright notice: `Copyright (c) 2026 Delyan Dosev`
+- Repository license: [LICENSE](LICENSE)
+- Scope: public-safe skill editions, documentation, examples, scripts, and other repository content unless a file explicitly states different terms.
 
-## Required decisions
+The MIT License permits use, copying, modification, merging, publication, distribution, sublicensing, and sale. Copies or substantial portions must retain the copyright and license notice. The content is provided as-is without warranty, and users assume the risks of applying it.
 
-The repository owner must select and approve:
+## Attribution and origin
 
-1. a public outbound license after confirming intended reuse and redistribution rights;
-2. an inbound contribution grant, DCO, CLA, or equivalent policy before accepting third-party-authored content;
-3. compatibility with bundled references, scripts, assets, and examples;
-4. attribution and notice obligations;
-5. whether all starter-pack skills use the same license or require per-skill notices.
+The legally required attribution is preservation of the copyright and MIT license notice.
 
-## Implementation evidence
+The preferred human-readable origin reference is:
 
-When approved, record:
+- **Original author:** Delyan Dosev
+- **Original source:** `dosev-ai/chatgpt-skills`
 
-- the substantive regular-text `LICENSE`, `LICENSE.md`, or `LICENSE.txt` file;
-- any contributor terms or sign-off mechanism;
-- required notices and per-skill license identifiers;
-- the owner decision and effective date;
-- validation evidence that the manifest license status and release entries align.
+## Inbound contribution policy
 
-This file must be updated when the license and inbound contribution decisions are implemented.
+The initial contribution model is maintainer-controlled:
+
+- public-safe defect reports, documentation gaps, and feature requests are accepted through issues;
+- public skill projections and substantive repository changes are prepared or explicitly adopted by the maintainer;
+- no DCO or CLA is required while third-party substantive contributions remain disabled;
+- before third-party substantive contributions are enabled, the repository owner must separately approve an inbound contribution policy and update this file and `CONTRIBUTING.md`.
+
+## Release effect
+
+A public skill may pass the licensing gate only when:
+
+- repository `license_status` is `approved`;
+- the substantive regular-text MIT `LICENSE` file is present;
+- its manifest and skill metadata use a non-placeholder license identifier;
+- required third-party notices, if any, are complete;
+- all other public-safety, lineage, validation, review, and clean-room gates pass.
+
+License approval removes the former owner-decision blocker. It does not by itself release a skill or replace the canonical-first publishing workflow.
