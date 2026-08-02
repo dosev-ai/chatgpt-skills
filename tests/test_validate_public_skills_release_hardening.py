@@ -71,7 +71,7 @@ class PublicSkillReleaseHardeningTests(unittest.TestCase):
         output = self._capture_failure(
             lambda: self.validator.validate_release_evidence(entry, "approved", True)
         )
-        self.assertIn("affirmative clean-room verification evidence", output)
+        self.assertIn("structured PASS verification evidence", output)
 
     def test_public_released_rejects_explicit_failed_verification(self) -> None:
         entry = {
@@ -88,7 +88,7 @@ class PublicSkillReleaseHardeningTests(unittest.TestCase):
         output = self._capture_failure(
             lambda: self.validator.validate_release_evidence(entry, "approved", True)
         )
-        self.assertIn("affirmative clean-room verification evidence", output)
+        self.assertIn("structured PASS verification evidence", output)
 
     def test_package_hash_must_match_actual_artifact(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
