@@ -64,7 +64,12 @@ class PublicSkillSecurityRegressionTests(unittest.TestCase):
 
     def test_utf16_secret_after_long_binary_prefix_is_rejected(self) -> None:
         secret = "gh" + "p_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
-        payload = b"\x89PNG\r\n\x1a\n" + (b"A" * 9000) + secret.encode("utf-16-le")
+        payload = (
+            b"\x89PNG\r\n\x1a\n"
+            + (b"A" * 9000)
+            + b"!!"
+            + secret.encode("utf-16-le")
+        )
         output = self._capture_failure(
             lambda: self.validator.scan_binary(payload, ".png", "late-secret.png")
         )
