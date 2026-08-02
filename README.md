@@ -68,18 +68,28 @@ skills/<skill-id>/
 └── references/         # Public-safe supporting material
 ```
 
+## Use, attribution, and risk
+
+Public repository content is available under the standard [MIT License](LICENSE).
+
+You may use, copy, modify, merge, publish, distribute, sublicense, or sell the public skill editions. Copies or substantial portions must retain the copyright and MIT license notice.
+
+- **Copyright:** `Copyright (c) 2026 Delyan Dosev`
+- **Preferred origin reference:** `Delyan Dosev — dosev-ai/chatgpt-skills`
+- **Risk:** the content is provided as-is without warranty; users are responsible for evaluating and applying it in their own environment.
+
+See [LICENSE-STATUS.md](LICENSE-STATUS.md) for the licensing and contribution policy.
+
 ## Public reports and contributions
 
 Use the public issue form for defects, documentation gaps, installation problems, public-safety concerns or feature requests. Include only public-safe evidence.
 
 Public reports are classified as canonical defects, public-transformation defects or both. Canonical defects are repaired in the private source first and then re-promoted so this repository does not become a second source of truth.
 
-Third-party-authored skill content and substantive patches are not accepted until an inbound contribution policy is approved. Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting anything.
+The initial contribution model is maintainer-controlled. Public-safe issue reports are welcome, but unsolicited third-party-authored skill content and substantive patches are not accepted until a separate inbound contribution policy is approved. Read [CONTRIBUTING.md](CONTRIBUTING.md) before submitting anything.
 
 ## Release status
 
 The repository foundation and first public skill are under governed review. No starter-pack skill is currently classified as `public-released`.
 
-## License status
-
-A repository license and inbound contribution grant have not yet been selected. Until owner-approved terms are added, the contents remain publicly visible but are not presented as an authorized reusable release. See [LICENSE-STATUS.md](LICENSE-STATUS.md).
+The MIT licensing decision is approved and implemented on the foundation branch. It removes the prior license-decision blocker but does not bypass canonical merge, public review, exact-head validation, or clean-room release gates.
