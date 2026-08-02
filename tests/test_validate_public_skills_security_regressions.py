@@ -4,8 +4,10 @@ import contextlib
 import gzip
 import importlib.util
 import io
+import struct
 import tarfile
 import unittest
+import zlib
 from pathlib import Path
 from types import ModuleType
 
@@ -72,6 +74,23 @@ class PublicSkillSecurityRegressionTests(unittest.TestCase):
             member.size = 4
             archive.addfile(member, io.BytesIO(b"safe"))
         return output.getvalue()
+
+    def _gzip_with_metadata(self, payload: bytes, flag: int, metadata: bytes) -> bytes:
+        compressor = zlib.compressobj(level=9, wbits=-zlib.MAX_WBITS)
+        compressed = compressor.compress(payload) + compressor.flush()
+        header = b"\x1f\x8b\x08" + bytes([flag]) + (b"\x00" * 4) + b"\x00\xff"
+        if flag == 0x04:
+            optional = struct.pack("<H", len(metadata)) + metadata
+        elif flag in (0x08, 0x10):
+            optional = metadata + b"\x00"
+        else:
+            raise ValueError(f"unsupported test gzip flag: {flag}")
+        trailer = struct.pack(
+            "<II",
+            zlib.crc32(payload) & 0xFFFFFFFF,
+            len(payload) & 0xFFFFFFFF,
+        )
+        return header + optional + compressed + trailer
 
     def test_candidate_directory_requires_approved_repository_license(self) -> None:
         for state in ("candidate-needs-sanitization", "ready-for-public-pr"):
@@ -140,6 +159,24 @@ class PublicSkillSecurityRegressionTests(unittest.TestCase):
                 output = self._capture_failure(
                     lambda data=archive_bytes, name=source: self.validator.scan_tar_archive(
                         data, name
+                    )
+                )
+                self.assertIn("GitHub token", output)
+
+    def test_gzip_wrapper_metadata_secret_is_rejected(self) -> None:
+        secret = ("gh" + "p_" + "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890").encode("ascii")
+        member = tarfile.TarInfo("safe.txt")
+        raw_archive = self._tar_bytes(member)
+        for flag, label in (
+            (0x04, "extra"),
+            (0x08, "filename"),
+            (0x10, "comment"),
+        ):
+            with self.subTest(field=label):
+                archive_bytes = self._gzip_with_metadata(raw_archive, flag, secret)
+                output = self._capture_failure(
+                    lambda data=archive_bytes, name=label: self.validator.scan_tar_archive(
+                        data, f"gzip-{name}.tar.gz"
                     )
                 )
                 self.assertIn("GitHub token", output)
