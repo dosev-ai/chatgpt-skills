@@ -58,6 +58,7 @@ class PublicSkillPolicyHardeningTests(unittest.TestCase):
     def test_public_directory_rejects_non_mit_license(self) -> None:
         entry = {
             "id": "example-skill",
+            "path": "skills/example-skill",
             "release_state": "public-pr-open",
             "artifact_status": "none",
             "license": "GPL-3.0",
@@ -71,6 +72,7 @@ class PublicSkillPolicyHardeningTests(unittest.TestCase):
     def test_public_release_rejects_blank_residual_text(self) -> None:
         entry = {
             "id": "example-skill",
+            "path": "skills/example-skill",
             "release_state": "public-released",
             "artifact_status": "none",
             "license": "MIT",
