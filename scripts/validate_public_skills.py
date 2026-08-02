@@ -32,6 +32,7 @@ MANIFEST = _base.MANIFEST
 SCHEMA = _base.SCHEMA
 SKILLS_DIR = _base.SKILLS_DIR
 
+_original_validate_archive_member_name = _base.validate_archive_member_name
 _original_validate_root_contract = _base.validate_root_contract
 _original_validate_skill = _base.validate_skill
 _original_validate_release_evidence = _base.validate_release_evidence
@@ -67,16 +68,6 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-VERIFICATION_PLACEHOLDERS = {
-    "pending",
-    "unknown",
-    "unverified",
-    "not verified",
-    "not run",
-    "not-run",
-    "tbd",
-    "todo",
-}
 
 
 def _sync_paths() -> None:
@@ -114,12 +105,19 @@ def scan_public_path(relative: Path) -> None:
     _base.scan_text(relative.as_posix(), f"public path {relative.as_posix()}")
 
 
+def validate_archive_member_name(name: str, archive_source: str) -> PurePosixPath:
+    """Validate and scan every archive path, including directory-only entries."""
+
+    member_path = _original_validate_archive_member_name(name, archive_source)
+    _base.scan_text(name, f"archive member path {archive_source}!{name}")
+    return member_path
+
+
 def scan_archive_member(data: bytes, name: str, archive_source: str) -> None:
     """Scan archive member paths and complete payloads before accepting content."""
 
-    member_path: PurePosixPath = _base.validate_archive_member_name(name, archive_source)
+    member_path = validate_archive_member_name(name, archive_source)
     source = f"{archive_source}!{name}"
-    _base.scan_text(name, f"archive member path {source}")
     suffix = member_path.suffix.lower()
     if suffix in _base.BINARY_SUFFIXES:
         _base.scan_binary(data, suffix, source)
@@ -206,12 +204,42 @@ def validate_package_evidence(entry: dict[str, Any]) -> None:
         _base.fail(f"public package path escapes repository root: {entry['id']}")
     if package_path.is_symlink() or not package_path.is_file():
         _base.fail(
-            f"packaged public-released skill requires regular artifact "
+            f"recorded public package requires regular artifact "
             f"{entry['path']}/skill.zip: {entry['id']}"
         )
     actual_hash = hashlib.sha256(package_path.read_bytes()).hexdigest()
     if entry.get("package_sha256") != actual_hash:
         _base.fail(f"package_sha256 does not match {entry['path']}/skill.zip: {entry['id']}")
+
+
+def has_affirmative_verification(value: Any) -> bool:
+    """Require explicit, unambiguous evidence that clean-room verification passed."""
+
+    if not isinstance(value, str):
+        return False
+    normalized = " ".join(value.strip().split())
+    if not normalized:
+        return False
+    lowered = normalized.lower()
+    negative_markers = (
+        "fail",
+        "false",
+        "error",
+        "unsuccess",
+        "pending",
+        "unknown",
+        "unverified",
+        "not verified",
+        "not run",
+        "not-run",
+        "tbd",
+        "todo",
+    )
+    if any(marker in lowered for marker in negative_markers):
+        return False
+    if lowered.startswith("pass:"):
+        return bool(normalized[5:].strip())
+    return lowered.endswith(" passed") or lowered.endswith(" passed.")
 
 
 def validate_release_evidence(
@@ -234,9 +262,11 @@ def validate_release_evidence(
                 f"{APPROVED_PUBLIC_SKILL_LICENSE}: {entry['id']}"
             )
 
+    if "package_sha256" in entry:
+        validate_package_evidence(entry)
+
     if release_state == "public-released":
-        verification = entry.get("verification")
-        if not isinstance(verification, str) or verification.strip().lower() in VERIFICATION_PLACEHOLDERS:
+        if not has_affirmative_verification(entry.get("verification")):
             _base.fail(
                 f"public-released skill requires affirmative clean-room verification evidence: "
                 f"{entry['id']}"
@@ -250,8 +280,6 @@ def validate_release_evidence(
                 f"public-released skill residuals must contain only nonblank text: "
                 f"{entry['id']}"
             )
-        if entry["artifact_status"] == "package":
-            validate_package_evidence(entry)
 
 
 def _section_indices(lines: list[str], heading: str, skill_id: str) -> set[int]:
@@ -335,6 +363,7 @@ def validate_skill(entry: dict[str, Any], repository_license_status: str) -> Non
 
 _base.should_ignore = should_ignore
 _base.scan_bytes_for_forbidden = scan_bytes_for_forbidden
+_base.validate_archive_member_name = validate_archive_member_name
 _base.scan_archive_member = scan_archive_member
 _base.scan_public_tree = scan_public_tree
 _base.validate_root_contract = validate_root_contract
