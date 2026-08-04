@@ -1,0 +1,13 @@
+CHANGELOG.md
+README.md
+SKILL.md
+agents/openai.yaml
+assets/icon.svg
+references/adr-candidate-register.md
+references/feedback-and-change-control.md
+references/output-templates.md
+references/prd-contract.md
+references/product-review.md
+references/public-modes-and-example.md
+references/stakeholder-approval.md
+references/traceability.md

@@ -37,6 +37,10 @@ Representative requests:
 4. Capture explicit product-owner and triggered stakeholder decisions.
 5. Produce the versioned PRD, ADR-candidate register, persistence status, evidence limitations, and next governed action.
 
+## Installation
+
+Download `skill.zip` from this directory and upload it as a single ChatGPT skill. The archive contains the complete public skill bundle, including `SKILL.md`, agent metadata, references, and assets. Verify the archive SHA-256 against `release-evidence/governed-prd-creation-v1.1.1-package.sha256`. After the package-containing merge is verified, the same checksum is recorded in `skills-manifest.yaml`.
+
 ## Limitations
 
 The skill does not infer product authority from names or titles, invent project or storage identifiers, select implementation technologies, approve architecture decisions, or convert a PRD directly into executable delivery work. Connected systems are optional and may be used only after current-session reads and authorization checks. Legal, security, privacy, accessibility, and regulatory approvals remain with their authorized decision-makers.
@@ -52,8 +56,10 @@ The skill does not infer product authority from names or titles, invent project 
 
 ## Release status
 
-- Public release state: `public-released`
-- Public pull request: `#2`
-- Artifact status: `none`
-- Clean-room verification: `PASS: Clean-room mounted installation from public merge ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c matched all 13 governed skill blobs, passed 10 behavioral contract checks, and was followed by exact-hash restoration of canonical private v1.1.1.`
-- Known residuals: `none`
+- Public release state: `See skills-manifest.yaml`
+- Public pull request: `See skills-manifest.yaml`
+- Artifact status: `package`
+- Package path: `skills/governed-prd-creation/skill.zip`
+- Package integrity: `See release-evidence/governed-prd-creation-v1.1.1-package.sha256; after merged verification, see skills-manifest.yaml`
+- Clean-room verification: `See skills-manifest.yaml and release-evidence/`
+- Known residuals: `See skills-manifest.yaml`

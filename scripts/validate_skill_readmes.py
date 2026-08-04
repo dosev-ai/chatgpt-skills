@@ -30,6 +30,13 @@ RELEASE_FIELD_PREFIXES = (
     "- Clean-room verification:",
     "- Known residuals:",
 )
+PACKAGE_RELEASE_LINES = (
+    "- Public release state: `See skills-manifest.yaml`",
+    "- Public pull request: `See skills-manifest.yaml`",
+    "- Artifact status: `package`",
+    "- Clean-room verification: `See skills-manifest.yaml and release-evidence/`",
+    "- Known residuals: `See skills-manifest.yaml`",
+)
 
 
 def fail(message: str) -> None:
@@ -79,6 +86,12 @@ def expected_release_lines(entry: dict[str, Any]) -> tuple[str, ...]:
                 f"{entry.get('id', '<unknown>')}"
             )
         residual_text = "; ".join(value.strip() for value in residuals)
+
+    # Packaged README content must remain byte-stable while post-merge evidence,
+    # checksums, and release state evolve outside the archive. The manifest and
+    # release-evidence ledger remain authoritative for those mutable fields.
+    if entry.get("artifact_status") == "package":
+        return PACKAGE_RELEASE_LINES
 
     return (
         f"- Public release state: `{entry['release_state']}`",
