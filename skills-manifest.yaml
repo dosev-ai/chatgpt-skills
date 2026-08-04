@@ -30,7 +30,7 @@ skills:
     path: skills/governed-prd-creation
     display_name: Governed PRD Creation
     version: 1.1.1
-    release_state: public-pr-open
+    release_state: public-released
     description: Create, review, repair, version, approve, and hand off measurable Product Requirements Documents before architecture or implementation planning.
     canonical:
       repository: deldos/skills
@@ -42,3 +42,6 @@ skills:
     license: MIT
     artifact_status: none
     public_pr: 2
+    public_merge_commit: ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c
+    verification: "PASS: Clean-room mounted installation from public merge ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c matched all 13 governed skill blobs, passed 10 behavioral contract checks, and was followed by exact-hash restoration of canonical private v1.1.1."
+    residuals: []
