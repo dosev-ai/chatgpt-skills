@@ -40,8 +40,9 @@ skills:
       final_pr_head: eab6db6554841182fe763fc7781a8e8db90feaa2
       merge_commit: f218d5ffaddcab12a736420166f3348b31183dac
     license: MIT
-    artifact_status: none
+    artifact_status: package
+    package_sha256: daef2d553eb71b07da9fdb8d6922901ffb5194aba24a299ed56b46cc871a7a31
     public_pr: 2
     public_merge_commit: ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c
-    verification: "PASS: Clean-room mounted installation from public merge ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c matched all 13 governed skill blobs, passed 10 behavioral contract checks, and was followed by exact-hash restoration of canonical private v1.1.1."
+    verification: "PASS: Clean-room mounted installation from public merge ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c matched all 13 governed skill blobs and passed 10 behavioral contract checks; the installable skill.zip contains the same 13 files, has SHA-256 daef2d553eb71b07da9fdb8d6922901ffb5194aba24a299ed56b46cc871a7a31, extracted with exact source parity, and passed skill-creator validation."
     residuals: []
