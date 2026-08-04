@@ -25,4 +25,20 @@ allowed_release_states:
   - public-merged-verification-pending
   - public-released
 
-skills: []
+skills:
+  - id: governed-prd-creation
+    path: skills/governed-prd-creation
+    display_name: Governed PRD Creation
+    version: 1.1.1
+    release_state: public-pr-open
+    description: Create, review, repair, version, approve, and hand off measurable Product Requirements Documents before architecture or implementation planning.
+    canonical:
+      repository: deldos/skills
+      path: skills/governed-prd-creation
+      version: 1.1.1
+      source_pr: 33
+      final_pr_head: eab6db6554841182fe763fc7781a8e8db90feaa2
+      merge_commit: f218d5ffaddcab12a736420166f3348b31183dac
+    license: MIT
+    artifact_status: none
+    public_pr: 2
