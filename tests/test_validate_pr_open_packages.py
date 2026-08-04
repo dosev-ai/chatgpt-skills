@@ -64,11 +64,12 @@ class PrOpenPackageParityTests(unittest.TestCase):
             return int(exc.code), output.getvalue()
         return result, output.getvalue()
 
-    def write_zip(self, files: dict[str, str]) -> Path:
+    def write_zip(self, files: dict[str, str], *, top_level: str | None = "example-skill") -> Path:
         package = self.skill_dir / "skill.zip"
         with zipfile.ZipFile(package, "w") as archive:
             for name, text in files.items():
-                archive.writestr(name, text)
+                path = f"{top_level}/{name}" if top_level else name
+                archive.writestr(path, text)
         return package
 
     def write_evidence(
@@ -102,12 +103,26 @@ class PrOpenPackageParityTests(unittest.TestCase):
             "SKILL.md": "---\nname: example-skill\ndescription: test\n---\n",
         }
 
-    def test_matching_package_without_manifest_hash_passes(self) -> None:
+    def test_matching_standard_package_without_manifest_hash_passes(self) -> None:
         package = self.write_zip(self.matching_files())
         self.write_evidence(package)
         code, output = self.run_validator()
         self.assertEqual(code, 0)
         self.assertIn("PASS: 1 package(s)", output)
+
+    def test_flat_package_fails(self) -> None:
+        package = self.write_zip(self.matching_files(), top_level=None)
+        self.write_evidence(package)
+        code, output = self.run_validator()
+        self.assertEqual(code, 1)
+        self.assertIn("must use one top-level directory", output)
+
+    def test_wrong_top_level_directory_fails(self) -> None:
+        package = self.write_zip(self.matching_files(), top_level="wrong-name")
+        self.write_evidence(package)
+        code, output = self.run_validator()
+        self.assertEqual(code, 1)
+        self.assertIn("must use one top-level directory", output)
 
     def test_missing_package_fails(self) -> None:
         code, output = self.run_validator()

@@ -38,13 +38,13 @@ def load_entries() -> list[dict[str, Any]]:
     return entries
 
 
-def safe_member_name(name: str, skill_id: str) -> str:
+def safe_member_name(name: str, skill_id: str) -> PurePosixPath:
     if not name or "\\" in name:
         fail(f"invalid package member path for {skill_id}: {name!r}")
     member = PurePosixPath(name)
     if member.is_absolute() or any(part in {"", ".", ".."} for part in member.parts):
         fail(f"invalid package member path for {skill_id}: {name!r}")
-    return member.as_posix()
+    return member
 
 
 def expected_source(skill_dir: Path, package_path: Path, skill_id: str) -> dict[str, bytes]:
@@ -59,22 +59,34 @@ def expected_source(skill_dir: Path, package_path: Path, skill_id: str) -> dict[
 
 
 def actual_package(package_path: Path, skill_id: str) -> dict[str, bytes]:
+    """Read a standard skill-creator archive and strip its one top-level folder."""
     actual: dict[str, bytes] = {}
+    entrypoints = 0
     try:
         with zipfile.ZipFile(package_path) as archive:
             for info in archive.infolist():
                 if info.is_dir():
                     continue
-                name = safe_member_name(info.filename, skill_id)
-                if name in actual:
-                    fail(f"duplicate package member for {skill_id}: {name}")
+                member = safe_member_name(info.filename, skill_id)
+                if len(member.parts) < 2 or member.parts[0] != skill_id:
+                    fail(
+                        f"skill.zip for {skill_id} must use one top-level directory "
+                        f"named {skill_id}/: {member.as_posix()}"
+                    )
+                relative = PurePosixPath(*member.parts[1:]).as_posix()
+                if relative == "SKILL.md":
+                    entrypoints += 1
+                if relative in actual:
+                    fail(f"duplicate package member for {skill_id}: {relative}")
                 mode = (info.external_attr >> 16) & 0xFFFF
                 file_type = stat.S_IFMT(mode)
                 if file_type not in (0, stat.S_IFREG):
-                    fail(f"non-regular package member for {skill_id}: {name}")
-                actual[name] = archive.read(info)
+                    fail(f"non-regular package member for {skill_id}: {member.as_posix()}")
+                actual[relative] = archive.read(info)
     except (zipfile.BadZipFile, RuntimeError, OSError) as exc:
         fail(f"invalid skill.zip for {skill_id}: {exc}")
+    if entrypoints != 1:
+        fail(f"skill.zip for {skill_id} requires exactly one SKILL.md entrypoint")
     return actual
 
 
@@ -97,13 +109,9 @@ def validate_external_evidence(
     if not isinstance(version, str) or not version.strip():
         fail(f"package entry requires text version: {skill_id}")
     evidence_base = ROOT / "release-evidence" / f"{skill_id}-v{version}-package"
-    checksum_path = regular_evidence_file(
-        Path(f"{evidence_base}.sha256"), skill_id
-    )
+    checksum_path = regular_evidence_file(Path(f"{evidence_base}.sha256"), skill_id)
     size_path = regular_evidence_file(Path(f"{evidence_base}.size"), skill_id)
-    inventory_path = regular_evidence_file(
-        Path(f"{evidence_base}.inventory"), skill_id
-    )
+    inventory_path = regular_evidence_file(Path(f"{evidence_base}.inventory"), skill_id)
 
     checksum_text = checksum_path.read_text(encoding="utf-8").strip()
     match = SHA256_PATTERN.fullmatch(checksum_text)
@@ -125,7 +133,7 @@ def validate_external_evidence(
     actual_size = package_path.stat().st_size
     if actual_size != expected_size:
         fail(
-            f"PR-open package size differs from release evidence for {skill_id}: "
+            f"PR-open package size differs from release evidence for {skil_id}: "
             f"expected={expected_size}, actual={actual_size}"
         )
 
