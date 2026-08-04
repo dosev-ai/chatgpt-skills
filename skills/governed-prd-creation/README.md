@@ -56,10 +56,10 @@ The skill does not infer product authority from names or titles, invent project 
 
 ## Release status
 
-- Public release state: `public-released`
-- Public pull request: `#2`
+- Public release state: `See skills-manifest.yaml`
+- Public pull request: `See skills-manifest.yaml`
 - Artifact status: `package`
 - Package path: `skills/governed-prd-creation/skill.zip`
 - Package integrity: `SHA-256 recorded in skills-manifest.yaml`
-- Clean-room verification: `PASS: Clean-room mounted installation from public merge ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c matched all 13 governed skill blobs and passed 10 behavioral contract checks; the installable skill.zip contains the same 13 files, extracted with exact source parity, passed skill-creator validation, and is integrity-bound by the manifest package_sha256.`
-- Known residuals: `none`
+- Clean-room verification: `See skills-manifest.yaml and release-evidence/`
+- Known residuals: `See skills-manifest.yaml`

@@ -30,7 +30,7 @@ skills:
     path: skills/governed-prd-creation
     display_name: Governed PRD Creation
     version: 1.1.1
-    release_state: public-released
+    release_state: public-pr-open
     description: Create, review, repair, version, approve, and hand off measurable Product Requirements Documents before architecture or implementation planning.
     canonical:
       repository: deldos/skills
@@ -41,8 +41,8 @@ skills:
       merge_commit: f218d5ffaddcab12a736420166f3348b31183dac
     license: MIT
     artifact_status: package
-    package_sha256: 7360064f2ebe4fc0bd18b0eeb33251114170dce32a0238578da1e388ea4c98a7
-    public_pr: 2
-    public_merge_commit: ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c
-    verification: "PASS: Clean-room mounted installation from public merge ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c matched all 13 governed skill blobs and passed 10 behavioral contract checks; the installable skill.zip contains the same 13 files, extracted with exact source parity, passed skill-creator validation, and is integrity-bound by the manifest package_sha256."
-    residuals: []
+    package_sha256: 054cfbb4257f55d27cdbbef775a731879ede557c731029bd3575e6fb4b266047
+    public_pr: 4
+    verification: "PRE-MERGE PASS: The exact PR-head skill.zip contains the same 13 files as the governed public skill tree, extracted with exact source parity, and passed skill-creator validation. Post-merge rebuild, checksum comparison, and clean-room installation remain pending."
+    residuals:
+      - Verify the exact merged package tree and record the package-containing merge commit before returning the skill to public-released.

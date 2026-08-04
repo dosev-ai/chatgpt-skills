@@ -37,11 +37,16 @@ class SkillReadmeValidatorTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temp_dir.cleanup()
 
-    def _entry(self, *, release_state: str = "public-pr-open") -> dict[str, object]:
+    def _entry(
+        self,
+        *,
+        release_state: str = "public-pr-open",
+        artifact_status: str = "none",
+    ) -> dict[str, object]:
         entry: dict[str, object] = {
             "id": "example-skill",
             "release_state": release_state,
-            "artifact_status": "none",
+            "artifact_status": artifact_status,
         }
         if release_state in {
             "public-pr-open",
@@ -61,15 +66,23 @@ class SkillReadmeValidatorTests(unittest.TestCase):
         )
 
     def _release_lines(self, entry: dict[str, object]) -> str:
-        public_pr = f"#{entry['public_pr']}" if "public_pr" in entry else "not yet opened"
-        verification = str(entry.get("verification", "pending"))
+        verification = entry.get("verification", "pending")
+        if not isinstance(verification, str):
+            verification = str(verification)
         residuals = entry.get("residuals")
         if residuals is None:
             residual_text = "pending"
-        elif not residuals:
+        elif isinstance(residuals, list) and not residuals:
             residual_text = "none"
-        else:
+        elif isinstance(residuals, list):
             residual_text = "; ".join(str(value) for value in residuals)
+        else:
+            residual_text = str(residuals)
+
+        if entry["artifact_status"] == "package":
+            return "\n".join(self.validator.PACKAGE_RELEASE_LINES) + "\n"
+
+        public_pr = f"#{entry['public_pr']}" if "public_pr" in entry else "not yet opened"
         return (
             f"- Public release state: `{entry['release_state']}`\n"
             f"- Public pull request: `{public_pr}`\n"
@@ -114,6 +127,41 @@ class SkillReadmeValidatorTests(unittest.TestCase):
         code, output = self._run()
         self.assertEqual(code, 0)
         self.assertIn("1 skill README(s)", output)
+
+    def test_package_readme_uses_stable_external_release_ledger(self) -> None:
+        entry = self._entry(artifact_status="package")
+        self._write_manifest([entry])
+        self._write_readme(self._valid_readme(entry))
+        code, output = self._run()
+        self.assertEqual(code, 0)
+        self.assertIn("1 skill README(s)", output)
+
+    def test_package_readme_remains_valid_after_manifest_state_changes(self) -> None:
+        initial = self._entry(
+            release_state="public-pr-open",
+            artifact_status="package",
+        )
+        self._write_readme(self._valid_readme(initial))
+        released = self._entry(
+            release_state="public-released",
+            artifact_status="package",
+        )
+        self._write_manifest([released])
+        code, output = self._run()
+        self.assertEqual(code, 0)
+        self.assertIn("1 skill README(s)", output)
+
+    def test_package_readme_rejects_embedded_dynamic_release_state(self) -> None:
+        entry = self._entry(artifact_status="package")
+        self._write_manifest([entry])
+        content = self._valid_readme(entry).replace(
+            "- Public release state: `See skills-manifest.yaml`",
+            "- Public release state: `public-pr-open`",
+        )
+        self._write_readme(content)
+        code, output = self._run()
+        self.assertEqual(code, 1)
+        self.assertIn("release status differs from manifest", output)
 
     def test_missing_required_section_is_rejected(self) -> None:
         entry = self._entry()
