@@ -61,5 +61,5 @@ The skill does not infer product authority from names or titles, invent project 
 - Artifact status: `package`
 - Package path: `skills/governed-prd-creation/skill.zip`
 - Package integrity: `SHA-256 recorded in skills-manifest.yaml`
-- Clean-room verification: `PASS: Clean-room mounted installation from public merge ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c matched all 13 governed skill blobs and passed 10 behavioral contract checks; the installable skill.zip contains the same 13 files, has SHA-256 daef2d553eb71b07da9fdb8d6922901ffb5194aba24a299ed56b46cc871a7a31, extracted with exact source parity, and passed skill-creator validation.`
+- Clean-room verification: `PASS: Clean-room mounted installation from public merge ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c matched all 13 governed skill blobs and passed 10 behavioral contract checks; the installable skill.zip contains the same 13 files, extracted with exact source parity, passed skill-creator validation, and is integrity-bound by the manifest package_sha256.`
 - Known residuals: `none`
