@@ -39,7 +39,7 @@ Representative requests:
 
 ## Installation
 
-Download `skill.zip` from this directory and upload it as a single ChatGPT skill. The archive contains the complete public skill bundle, including `SKILL.md`, agent metadata, references, and assets. Verify the archive SHA-256 against the `package_sha256` recorded in the repository manifest before installation.
+Download `skill.zip` from this directory and upload it as a single ChatGPT skill. The archive contains the complete public skill bundle, including `SKILL.md`, agent metadata, references, and assets. Verify the archive SHA-256 against `release-evidence/governed-prd-creation-v1.1.1-package.sha256`. After the package-containing merge is verified, the same checksum is recorded in `skills-manifest.yaml`.
 
 ## Limitations
 
@@ -60,6 +60,6 @@ The skill does not infer product authority from names or titles, invent project 
 - Public pull request: `See skills-manifest.yaml`
 - Artifact status: `package`
 - Package path: `skills/governed-prd-creation/skill.zip`
-- Package integrity: `SHA-256 recorded in skills-manifest.yaml`
+- Package integrity: `See release-evidence/governed-prd-creation-v1.1.1-package.sha256; after merged verification, see skills-manifest.yaml`
 - Clean-room verification: `See skills-manifest.yaml and release-evidence/`
 - Known residuals: `See skills-manifest.yaml`
