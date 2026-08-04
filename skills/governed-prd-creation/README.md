@@ -52,8 +52,8 @@ The skill does not infer product authority from names or titles, invent project 
 
 ## Release status
 
-- Public release state: `ready-for-public-pr`
-- Public pull request: `not yet opened`
+- Public release state: `public-pr-open`
+- Public pull request: `#2`
 - Artifact status: `none`
 - Clean-room verification: `pending`
 - Known residuals: `pending`
