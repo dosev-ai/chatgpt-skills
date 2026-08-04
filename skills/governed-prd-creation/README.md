@@ -52,8 +52,8 @@ The skill does not infer product authority from names or titles, invent project 
 
 ## Release status
 
-- Public release state: `public-pr-open`
+- Public release state: `public-released`
 - Public pull request: `#2`
 - Artifact status: `none`
-- Clean-room verification: `pending`
-- Known residuals: `pending`
+- Clean-room verification: `PASS: Clean-room mounted installation from public merge ee6c7a853b18e8f3928f1c5a299a0d9750fcfb2c matched all 13 governed skill blobs, passed 10 behavioral contract checks, and was followed by exact-hash restoration of canonical private v1.1.1.`
+- Known residuals: `none`
