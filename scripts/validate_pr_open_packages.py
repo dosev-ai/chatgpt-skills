@@ -133,7 +133,7 @@ def validate_external_evidence(
     actual_size = package_path.stat().st_size
     if actual_size != expected_size:
         fail(
-            f"PR-open package size differs from release evidence for {skil_id}: "
+            f"PR-open package size differs from release evidence for {skill_id}: "
             f"expected={expected_size}, actual={actual_size}"
         )
 
