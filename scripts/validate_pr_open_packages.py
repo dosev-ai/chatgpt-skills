@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Require PR-open public skill packages to exist and match their source tree."""
+"""Require PR-open public skill packages and evidence to match their source tree."""
 
 from __future__ import annotations
 
+import hashlib
+import re
 import stat
 import sys
 import zipfile
@@ -13,6 +15,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "skills-manifest.yaml"
+SHA256_PATTERN = re.compile(r"^([0-9a-f]{64})  (.+)$")
 
 
 def fail(message: str) -> None:
@@ -75,6 +78,69 @@ def actual_package(package_path: Path, skill_id: str) -> dict[str, bytes]:
     return actual
 
 
+def regular_evidence_file(path: Path, skill_id: str) -> Path:
+    try:
+        path.resolve().relative_to(ROOT.resolve())
+    except ValueError:
+        fail(f"package evidence path escapes repository root: {skill_id}")
+    if path.is_symlink() or not path.is_file():
+        fail(f"PR-open package requires regular evidence file for {skill_id}: {path.relative_to(ROOT)}")
+    return path
+
+
+def validate_external_evidence(
+    entry: dict[str, Any], package_path: Path, expected_paths: list[str]
+) -> None:
+    skill_id = entry["id"]
+    skill_path = entry["path"]
+    version = entry.get("version")
+    if not isinstance(version, str) or not version.strip():
+        fail(f"package entry requires text version: {skill_id}")
+    evidence_base = ROOT / "release-evidence" / f"{skill_id}-v{version}-package"
+    checksum_path = regular_evidence_file(
+        Path(f"{evidence_base}.sha256"), skill_id
+    )
+    size_path = regular_evidence_file(Path(f"{evidence_base}.size"), skill_id)
+    inventory_path = regular_evidence_file(
+        Path(f"{evidence_base}.inventory"), skill_id
+    )
+
+    checksum_text = checksum_path.read_text(encoding="utf-8").strip()
+    match = SHA256_PATTERN.fullmatch(checksum_text)
+    expected_package_path = f"{skill_path}/skill.zip"
+    if match is None or match.group(2) != expected_package_path:
+        fail(f"invalid PR-open package checksum record for {skill_id}")
+    expected_sha256 = match.group(1)
+    actual_sha256 = hashlib.sha256(package_path.read_bytes()).hexdigest()
+    if actual_sha256 != expected_sha256:
+        fail(
+            f"PR-open package checksum differs from release evidence for {skill_id}: "
+            f"expected={expected_sha256}, actual={actual_sha256}"
+        )
+
+    size_text = size_path.read_text(encoding="utf-8").strip()
+    if not size_text.isdigit():
+        fail(f"invalid PR-open package size record for {skill_id}")
+    expected_size = int(size_text)
+    actual_size = package_path.stat().st_size
+    if actual_size != expected_size:
+        fail(
+            f"PR-open package size differs from release evidence for {skill_id}: "
+            f"expected={expected_size}, actual={actual_size}"
+        )
+
+    inventory = [
+        line.strip()
+        for line in inventory_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    if inventory != sorted(expected_paths):
+        fail(
+            f"PR-open package inventory differs from public skill tree for {skill_id}: "
+            f"expected={sorted(expected_paths)}, actual={inventory}"
+        )
+
+
 def validate_entry(entry: dict[str, Any]) -> None:
     skill_id = entry.get("id")
     skill_path = entry.get("path")
@@ -102,6 +168,8 @@ def validate_entry(entry: dict[str, Any]) -> None:
     for name, expected_bytes in expected.items():
         if actual[name] != expected_bytes:
             fail(f"PR-open package member differs from public skill tree for {skill_id}: {name}")
+
+    validate_external_evidence(entry, package_path, sorted(expected))
 
 
 def main() -> int:
