@@ -41,7 +41,6 @@ skills:
       merge_commit: f218d5ffaddcab12a736420166f3348b31183dac
     license: MIT
     artifact_status: package
-    package_sha256: 054cfbb4257f55d27cdbbef775a731879ede557c731029bd3575e6fb4b266047
     public_pr: 4
     verification: "PRE-MERGE PASS: The exact PR-head skill.zip contains the same 13 files as the governed public skill tree, extracted with exact source parity, and passed skill-creator validation. Post-merge rebuild, checksum comparison, and clean-room installation remain pending."
     residuals:
