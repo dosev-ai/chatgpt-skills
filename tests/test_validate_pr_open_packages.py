@@ -124,6 +124,13 @@ class PrOpenPackageParityTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn("must use one top-level directory", output)
 
+    def test_missing_skill_entrypoint_fails(self) -> None:
+        package = self.write_zip({"README.md": "public source\n"})
+        self.write_evidence(package, inventory=["README.md"])
+        code, output = self.run_validator()
+        self.assertEqual(code, 1)
+        self.assertIn("requires exactly one SKILL.md entrypoint", output)
+
     def test_missing_package_fails(self) -> None:
         code, output = self.run_validator()
         self.assertEqual(code, 1)
