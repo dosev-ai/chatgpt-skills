@@ -9,7 +9,7 @@
 - Source parity: `PRE-MERGE PASS` — after removing the required top-level directory prefix, every packaged path and byte matches the exact public skill tree, excluding the package itself.
 - Skill validation: `PRE-MERGE PASS` — the source directory and cleanly extracted archive passed the `skill-creator` validator.
 - Package gate: `PASS` — the validator now requires the standard top-level skill directory and rejects flat-rooted or incorrectly named archives.
-- Regression tests: `8/8 PASS`, including flat-package and wrong-top-level-directory failures.
+- Regression tests: `9/9 PASS`, including flat-package, wrong-top-level-directory, and missing-`SKILL.md`-entrypoint failures.
 - Canonical source: `deldos/skills` PR #33, merge `f218d5ffaddcab12a736420166f3348b31183dac`.
 - Faulty package publication: public PR #4, merge `811f13fa0fa3dce9123612376678d30b7f20ac5b`; the flat-rooted archive and its prior checksum evidence are superseded by this repair.
 - ChatGPT upload/replacement validation: `pending user runtime confirmation`.
