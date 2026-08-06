@@ -42,7 +42,7 @@ skills:
     license: MIT
     artifact_status: package
     public_pr: 5
-    verification: "REPAIR PRE-MERGE PASS: skill.zip now uses the standard skill-creator layout with one top-level governed-prd-creation directory; all 13 source files match byte-for-byte after prefix removal; source and extracted archive validation pass; 8 package-layout and evidence regression tests pass. ChatGPT upload/replacement and merged-tree verification remain pending."
+    verification: "REPAIR PRE-MERGE PASS: skill.zip now uses the standard skill-creator layout with one top-level governed-prd-creation directory; all 13 source files match byte-for-byte after prefix removal; source and extracted archive validation pass; 9 package-layout and evidence regression tests pass. ChatGPT upload/replacement and merged-tree verification remain pending."
     residuals:
       - Confirm ChatGPT upload or replacement of the repaired package and record the exact runtime result.
       - Verify the package from the repair merge before returning the skill to public-released.
