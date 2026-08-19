@@ -49,21 +49,21 @@ skills:
   - id: governed-excel-creation
     path: skills/governed-excel-creation
     display_name: Governed Excel Creation
-    version: 1.1.0
+    version: 1.1.1
     release_state: public-pr-open
     description: Create, extend, repair, reformat, and validate portable, self-describing Excel workbooks with bounded changes, metadata, validation, and optional connected-source extensions.
     canonical:
       repository: deldos/skills
       path: skills/governed-excel-creation
-      version: 1.1.0
-      source_pr: 57
-      final_pr_head: 6380edaf538bc4ec4d7de2666c90f0eff1ab759c
-      merge_commit: 1b98d30f0edd564df165a73b4772505cf94258c1
+      version: 1.1.1
+      source_pr: 58
+      final_pr_head: fe121804374939f6d07694f67fdc4d90b920c294
+      merge_commit: 4e3c6a3e96712c6476dd9675cdd22264f3d1c049
     license: MIT
     artifact_status: none
     public_pr: 6
-    verification: "PUBLIC PR OPEN: the 40-file public-safe projection validates with skill-creator, passes public-safety scanning and Python compilation, and passes representative connector-free workbook metadata/context/workflow preflight. Exact-final-HEAD public review, required repository checks, merge, merged-tree verification, and the separate installable ZIP publication gate remain pending."
+    verification: "PUBLIC PR REPAIR: v1.1.1 re-projects canonical PR 58 merge 4e3c6a3e96712c6476dd9675cdd22264f3d1c049, rejects cross-workflow run-step lineage, validates populated blank-ID rows, and preserves fail-closed macro-aware legacy .xls conversion. Exact-final-HEAD public validation/review, merge, merged-tree verification, and a new v1.1.1 installable ZIP publication gate remain pending."
     residuals:
-      - Require Public Skill Validation, accepted exact-final-HEAD automated review, and Bot Comment Closure Rate PASS before merging public PR 6.
+      - Require Public Skill Validation, accepted exact-final-HEAD automated review, and Bot Comment Closure Rate PASS on the repaired v1.1.1 public PR before merge.
       - Verify the merged public source tree before advancing beyond public-merged-verification-pending.
-      - Publish the already-built installable skill.zip through the separate binary packaging gate; do not claim the ZIP is public until its checksum and merged artifact are verified.
+      - Build and publish a new v1.1.1 installable skill.zip through the separate binary packaging gate; the prior v1.1.0 local package is superseded and must not be published as current.
