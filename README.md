@@ -36,7 +36,7 @@ The initial release sequence is:
 | --- | --- | --- | --- |
 | 1 | `governed-prd-creation` | Define measurable product intent before architecture or implementation planning | Canonical preparation and public documentation in progress |
 | 2 | `session-handoff-compact` | Preserve verified context when work moves to a new conversation or operator | Blocked by Release 1 |
-| 3 | `governed-excel-creation` | Create and repair controlled business workbooks with validation and lineage | Public-safe source prepared; public PR and verification pending |
+| 3 | `governed-excel-creation` | Create and repair controlled business workbooks with validation and lineage | Public PR #6 open; exact-head review and verification pending |
 
 The Excel lane is allowed to proceed independently of the earlier starter-pack sequence, but all per-skill review, safety, merge and verification gates still apply. No skill is considered released merely because a branch, ZIP archive, pull request or merge commit exists.
 
