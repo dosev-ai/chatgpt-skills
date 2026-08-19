@@ -1,9 +1,9 @@
 ---
 name: governed-excel-creation
-description: Create, extend, repair, reformat, and validate professional Excel workbooks with a connector-independent native ChatGPT core and optional generic connected-source extensions. Use for .xlsx or .xls work involving business-ready workbook generation, formulas, tables, charts, dashboards, controlled inputs, metadata-driven formatting, existing-workbook modification, workbook planning and design, preview-and-approval workflows, repeatable workbook-local workflows, workflow checklists and run history, metadata and lineage, user-facing README and maintenance documentation, render review, rollback evidence, or continuation by a later ChatGPT session. Default substantive workbooks to a self-describing `_MCP_META` sheet with authoritative normalized Excel Tables.
+description: Create, extend, repair, reformat, and validate professional Excel workbooks with a connector-independent native ChatGPT core and optional generic connected-source extensions. Use for .xlsx or .xlsm work involving business-ready workbook generation, formulas, tables, charts, dashboards, controlled inputs, metadata-driven formatting, existing-workbook modification, workbook planning and design, preview-and-approval workflows, repeatable workbook-local workflows, workflow checklists and run history, metadata and lineage, user-facing README and maintenance documentation, render review, rollback evidence, or continuation by a later ChatGPT session. Legacy binary .xls inputs require feature-preserving controlled conversion to OOXML before bundled deterministic helpers are used. Default substantive workbooks to a self-describing `_MCP_META` sheet with authoritative normalized Excel Tables.
 license: MIT
 metadata:
-  version: 1.1.0
+  version: 1.1.1
   canonical_repository: deldos/skills
   canonical_path: skills/governed-excel-creation
 ---
@@ -55,6 +55,7 @@ Load only the references required for the current scope:
 - For connected-source workflows, preserve the declared authority of each source and keep Excel authoritative only for declared workbook-local inputs or approvals.
 - Normalize connector responses into fingerprinted source packets only when connected sources are actually used. In workbook-local mode, use workbook/input fingerprints and local evidence instead of synthetic connector packets.
 - Keep workflow run history separate from workbook design and contract changes.
+- Legacy binary `.xls` workbooks are not OOXML packages. Preserve the original. Before conversion, determine whether VBA/macros or other features that `.xlsx` cannot preserve are present or cannot be ruled out. Use a feature-preserving macro-enabled OOXML target such as `.xlsm` when macros are present or potentially present, and verify the required features survived conversion; use `.xlsx` only when macro-free conversion is established. If feature-preserving conversion cannot be verified, do not establish the converted workbook as a governed target or baseline and do not invoke the bundled deterministic OOXML helpers; report deterministic inspection as blocked or `Unknown` instead.
 - Save once after a validated in-memory mutation sequence whenever possible.
 
 ## Default lifecycle
@@ -74,4 +75,4 @@ Use the lighter path defined in [authoring-lifecycle.md](references/authoring-li
 
 ## Deterministic automation
 
-Use [deterministic-scripts.md](references/deterministic-scripts.md) when code execution is available. Prefer the bundled portable scripts for repeatable workbook context extraction, plan hashing, stale-target rejection, metadata validation, delta comparison, workflow-run envelopes, generic source-packet validation/merge, and readiness evidence. The scripts inspect workbooks or normalize already-exported generic evidence; they do not call networks or edit workbook business content.
+Use [deterministic-scripts.md](references/deterministic-scripts.md) when code execution is available. Prefer the bundled portable scripts for repeatable workbook context extraction, plan hashing, stale-target rejection, metadata validation, delta comparison, workflow-run envelopes, generic source-packet validation/merge, and readiness evidence. Bundled workbook helpers operate on OOXML workbooks such as `.xlsx` and `.xlsm`; apply the feature-preserving legacy `.xls` conversion gate above before invoking them. The scripts inspect workbooks or normalize already-exported generic evidence; they do not call networks or edit workbook business content.
