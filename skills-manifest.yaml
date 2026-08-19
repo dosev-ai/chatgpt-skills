@@ -46,3 +46,23 @@ skills:
     residuals:
       - Confirm ChatGPT upload or replacement of the repaired package and record the exact runtime result.
       - Verify the package from the repair merge before returning the skill to public-released.
+  - id: governed-excel-creation
+    path: skills/governed-excel-creation
+    display_name: Governed Excel Creation
+    version: 1.1.0
+    release_state: ready-for-public-pr
+    description: Create, extend, repair, reformat, and validate portable, self-describing Excel workbooks with bounded changes, metadata, validation, and optional connected-source extensions.
+    canonical:
+      repository: deldos/skills
+      path: skills/governed-excel-creation
+      version: 1.1.0
+      source_pr: 57
+      final_pr_head: 6380edaf538bc4ec4d7de2666c90f0eff1ab759c
+      merge_commit: 1b98d30f0edd564df165a73b4772505cf94258c1
+    license: MIT
+    artifact_status: none
+    verification: "PRE-PR SOURCE PASS: the 40-file public-safe projection validates with skill-creator, passes public-safety scanning and Python compilation, and passes representative connector-free workbook metadata/context/workflow preflight. Public exact-head review, required repository checks, merge, merged-tree verification, and the separate installable ZIP publication gate remain pending."
+    residuals:
+      - Open and review the exact public pull-request HEAD; require Public Skill Validation and Bot Comment Closure Rate to pass before merge.
+      - Verify the merged public source tree before classifying the source projection as released.
+      - Publish the already-built installable skill.zip through the separate binary packaging gate; do not claim the ZIP is public until its checksum and merged artifact are verified.
