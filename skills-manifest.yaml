@@ -50,7 +50,7 @@ skills:
     path: skills/governed-excel-creation
     display_name: Governed Excel Creation
     version: 1.1.0
-    release_state: ready-for-public-pr
+    release_state: public-pr-open
     description: Create, extend, repair, reformat, and validate portable, self-describing Excel workbooks with bounded changes, metadata, validation, and optional connected-source extensions.
     canonical:
       repository: deldos/skills
@@ -61,8 +61,9 @@ skills:
       merge_commit: 1b98d30f0edd564df165a73b4772505cf94258c1
     license: MIT
     artifact_status: none
-    verification: "PRE-PR SOURCE PASS: the 40-file public-safe projection validates with skill-creator, passes public-safety scanning and Python compilation, and passes representative connector-free workbook metadata/context/workflow preflight. Public exact-head review, required repository checks, merge, merged-tree verification, and the separate installable ZIP publication gate remain pending."
+    public_pr: 6
+    verification: "PUBLIC PR OPEN: the 40-file public-safe projection validates with skill-creator, passes public-safety scanning and Python compilation, and passes representative connector-free workbook metadata/context/workflow preflight. Exact-final-HEAD public review, required repository checks, merge, merged-tree verification, and the separate installable ZIP publication gate remain pending."
     residuals:
-      - Open and review the exact public pull-request HEAD; require Public Skill Validation and Bot Comment Closure Rate to pass before merge.
-      - Verify the merged public source tree before classifying the source projection as released.
+      - Require Public Skill Validation, accepted exact-final-HEAD automated review, and Bot Comment Closure Rate PASS before merging public PR 6.
+      - Verify the merged public source tree before advancing beyond public-merged-verification-pending.
       - Publish the already-built installable skill.zip through the separate binary packaging gate; do not claim the ZIP is public until its checksum and merged artifact are verified.
