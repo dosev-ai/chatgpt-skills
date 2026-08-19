@@ -106,7 +106,13 @@ def _extract_rows(cells: dict[tuple[int, int], str], ref: str, headers: list[str
 
 
 def _nonblank_rows(rows: list[dict[str, str]], id_field: str) -> list[dict[str, str]]:
-    return [row for row in rows if row.get(id_field, "").strip()]
+    """Keep every populated row so blank identifiers fail validation downstream."""
+    return [
+        row
+        for row in rows
+        if row.get(id_field, "").strip()
+        or any(str(value).strip() for key, value in row.items() if key != id_field)
+    ]
 
 
 def _check_unique(rows: list[dict[str, str]], field: str, table: str, errors: list[str]) -> set[str]:
