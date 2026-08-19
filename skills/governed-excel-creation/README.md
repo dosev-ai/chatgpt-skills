@@ -57,8 +57,8 @@ The skill does not prove native Excel recalculation unless a real native Excel e
 
 ## Release status
 
-- Public release state: `See skills-manifest.yaml`
-- Public pull request: `See skills-manifest.yaml`
-- Artifact status: source published; installable package pending the separate binary publication gate
-- Clean-room verification: source and deterministic public projection preflight complete; merged-tree verification remains governed by the public release gate
-- Known residuals: `See skills-manifest.yaml`
+- Public release state: `public-pr-open`
+- Public pull request: `#6`
+- Artifact status: `none`
+- Clean-room verification: `PUBLIC PR OPEN: the 40-file public-safe projection validates with skill-creator, passes public-safety scanning and Python compilation, and passes representative connector-free workbook metadata/context/workflow preflight. Exact-final-HEAD public review, required repository checks, merge, merged-tree verification, and the separate installable ZIP publication gate remain pending.`
+- Known residuals: `Require Public Skill Validation, accepted exact-final-HEAD automated review, and Bot Comment Closure Rate PASS before merging public PR 6.; Verify the merged public source tree before advancing beyond public-merged-verification-pending.; Publish the already-built installable skill.zip through the separate binary packaging gate; do not claim the ZIP is public until its checksum and merged artifact are verified.`
