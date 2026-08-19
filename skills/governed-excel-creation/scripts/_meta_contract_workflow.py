@@ -40,7 +40,17 @@ def _validate_workflow_extension(
     run_ids = _check_unique(runs, "Run_ID", "tbl_meta_workflow_runs", errors)
     _check_unique(run_steps, "Run_Step_ID", "tbl_meta_workflow_run_steps", errors)
     validation_ids = {row.get("Validation_ID", "").strip() for row in validations}
-    step_ids = {row.get("Step_ID", "").strip() for row in steps}
+    step_ids = {row.get("Step_ID", "").strip() for row in steps if row.get("Step_ID", "").strip()}
+    run_workflow_ids = {
+        row.get("Run_ID", "").strip(): row.get("Workflow_ID", "").strip()
+        for row in runs
+        if row.get("Run_ID", "").strip()
+    }
+    step_workflow_ids = {
+        row.get("Step_ID", "").strip(): row.get("Workflow_ID", "").strip()
+        for row in steps
+        if row.get("Step_ID", "").strip()
+    }
 
     for row in workflows:
         workflow_id = row.get("Workflow_ID", "").strip()
@@ -146,6 +156,18 @@ def _validate_workflow_extension(
             errors.append(f"Workflow run step {run_step_id!r} references missing run {run_id!r}")
         if step_id not in step_ids:
             errors.append(f"Workflow run step {run_step_id!r} references missing step {step_id!r}")
+        run_workflow_id = run_workflow_ids.get(run_id)
+        step_workflow_id = step_workflow_ids.get(step_id)
+        if (
+            run_workflow_id is not None
+            and step_workflow_id is not None
+            and run_workflow_id != step_workflow_id
+        ):
+            errors.append(
+                f"Workflow run step {run_step_id!r} crosses workflows: "
+                f"run {run_id!r} belongs to {run_workflow_id!r}, "
+                f"step {step_id!r} belongs to {step_workflow_id!r}"
+            )
         pair = (run_id, step_id)
         if pair in seen_run_step_pairs:
             errors.append(f"Duplicate workflow run-step pair {run_id!r}/{step_id!r}")
@@ -170,3 +192,4 @@ def _validate_workflow_extension(
         "runs": len(runs),
         "run_steps": len(run_steps),
     }
+
