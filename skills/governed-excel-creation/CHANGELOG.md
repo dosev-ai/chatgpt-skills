@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.1 - 2026-08-19
+
+- Reject workflow run-step evidence that crosses `Workflow_ID` boundaries.
+- Keep populated metadata rows in validation even when the identifier field is blank so malformed rows fail closed instead of being silently skipped.
+- Clarify the workbook-format boundary: bundled deterministic helpers operate on OOXML workbooks such as `.xlsx` and `.xlsm`.
+- Require feature-preserving controlled conversion for legacy binary `.xls` inputs: `.xlsx` only for established macro-free conversion; macro-bearing or potentially macro-bearing inputs require a macro-enabled OOXML target such as `.xlsm`, with fail-closed handling when preservation cannot be verified.
+- Preserve this legacy-conversion safety boundary in the downstream public projection contract.
+
 ## 1.1.0 - 2026-08-19
 
 - Added a connector-independent portable core for normal workbook delivery.
