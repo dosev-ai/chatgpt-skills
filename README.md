@@ -36,9 +36,9 @@ The initial release sequence is:
 | --- | --- | --- | --- |
 | 1 | `governed-prd-creation` | Define measurable product intent before architecture or implementation planning | Canonical preparation and public documentation in progress |
 | 2 | `session-handoff-compact` | Preserve verified context when work moves to a new conversation or operator | Blocked by Release 1 |
-| 3 | `governed-excel-creation` | Create and repair controlled business workbooks with validation and lineage | Blocked by Release 2 |
+| 3 | `governed-excel-creation` | Create and repair controlled business workbooks with validation and lineage | Public PR #6 open; exact-head review and verification pending |
 
-No skill is considered released merely because a branch, ZIP archive, pull request or merge commit exists.
+The Excel lane is allowed to proceed independently of the earlier starter-pack sequence, but all per-skill review, safety, merge and verification gates still apply. No skill is considered released merely because a branch, ZIP archive, pull request or merge commit exists.
 
 ## Dedicated README for every skill
 
@@ -90,6 +90,4 @@ The initial contribution model is maintainer-controlled. Public-safe issue repor
 
 ## Release status
 
-The repository foundation and first public skill are under governed review. No starter-pack skill is currently classified as `public-released`.
-
-The MIT licensing decision is approved and implemented on the foundation branch. It removes the prior license-decision blocker but does not bypass canonical merge, public review, exact-head validation, or clean-room release gates.
+The repository foundation and public starter-pack skills remain governed by exact-head review and clean-room verification. No starter-pack skill is classified as `public-released` unless its manifest entry says so.
