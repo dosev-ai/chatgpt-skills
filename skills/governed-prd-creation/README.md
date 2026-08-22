@@ -4,7 +4,7 @@ Create a measurable, reviewable Product Requirements Document that stabilizes pr
 
 ## What it does
 
-`governed-prd-creation` turns discovery notes, stakeholder needs, feature ideas, research, or an existing draft into a complete versioned PRD artifact. It provides proposal-first mode selection, stable requirement IDs, measurable success criteria, user and recovery journeys, Hunter-Skeptic-Referee review, explicit approval controls, an ADR-candidate register, four persistence outcomes, and downstream traceability.
+`governed-prd-creation` turns discovery notes, stakeholder needs, feature ideas, research, or an existing draft into a complete versioned PRD artifact. It provides proposal-first mode selection, stable requirement IDs, measurable success criteria, user and recovery journeys, Hunter-Skeptic-Referee review, explicit approval controls, an ADR-candidate register, four persistence outcomes, reusable preflight compatibility, and downstream traceability.
 
 ## Why it exists
 
@@ -14,6 +14,7 @@ Product work often moves into architecture or implementation while authority, ou
 
 - Produces a self-contained PRD that can be reviewed and versioned.
 - Prevents incomplete evidence or authority from being presented as an approved product decision.
+- Reuses verified upstream discovery and preflight context without allowing it to bypass product review or approval.
 - Converts broad goals into stable, testable requirements and measurable acceptance criteria.
 - Identifies architecture questions without choosing technologies prematurely.
 - Distinguishes `persisted`, `not persisted`, `blocked`, and `write failed` outcomes.
@@ -32,34 +33,35 @@ Representative requests:
 ## How it works
 
 1. Select `standalone-proposal`, `standalone`, or optional `connected-governance` mode from current evidence and decision authority.
-2. Define the problem, users, outcomes, boundaries, requirements, journeys, metrics, constraints, assumptions, dependencies, and risks.
-3. Run Hunter, Skeptic, and Referee passes and repair blocking findings.
-4. Capture explicit product-owner and triggered stakeholder decisions.
-5. Produce the versioned PRD, ADR-candidate register, persistence status, evidence limitations, and next governed action.
+2. Reuse verified upstream preflight context when available, without treating it as PRD approval.
+3. Define the problem, users, outcomes, boundaries, requirements, journeys, metrics, constraints, assumptions, dependencies, and risks.
+4. Run Hunter, Skeptic, and Referee passes and repair blocking findings.
+5. Capture explicit product-owner and triggered stakeholder decisions.
+6. Produce the versioned PRD, ADR-candidate register, persistence status, evidence limitations, and next governed action.
 
 ## Installation
 
-Download `skill.zip` from this directory and upload it as a single ChatGPT skill. The archive contains the complete public skill bundle, including `SKILL.md`, agent metadata, references, and assets. Verify the archive SHA-256 against `release-evidence/governed-prd-creation-v1.1.1-package.sha256`. After the package-containing merge is verified, the same checksum is recorded in `skills-manifest.yaml`.
+The public 1.2.0 source is being promoted through the governed public-release workflow. The previous 1.1.1 `skill.zip` is not a valid 1.2.0 package and is removed from the current skill directory during this promotion. Build and publish a 1.2.0 package only from the merged and verified public release; until then, treat package installation as pending.
 
 ## Limitations
 
-The skill does not infer product authority from names or titles, invent project or storage identifiers, select implementation technologies, approve architecture decisions, or convert a PRD directly into executable delivery work. Connected systems are optional and may be used only after current-session reads and authorization checks. Legal, security, privacy, accessibility, and regulatory approvals remain with their authorized decision-makers.
+The skill does not infer product authority from names or titles, invent project or storage identifiers, select implementation technologies, approve architecture decisions, or convert a PRD directly into executable delivery work. Upstream workshops or preflight results can provide evidence and framing but cannot replace product review or approval. Connected systems are optional and may be used only after current-session reads and authorization checks. Legal, security, privacy, accessibility, and regulatory approvals remain with their authorized decision-makers.
 
 ## Canonical lineage
 
 - Canonical repository: `deldos/skills`
 - Canonical path: `skills/governed-prd-creation`
-- Canonical version: `1.1.1`
-- Canonical source PR: `#33`
-- Canonical final PR HEAD: `eab6db6554841182fe763fc7781a8e8db90feaa2`
-- Canonical merge commit: `f218d5ffaddcab12a736420166f3348b31183dac`
+- Canonical version: `1.2.0`
+- Canonical source PR: `#51`
+- Canonical final PR HEAD: `a8e3333b9efcdab6621d74312d081c6e1125e8cf`
+- Canonical merge commit: `1d734545511227fef25ba131d3fd6e705c248d20`
 
 ## Release status
 
 - Public release state: `See skills-manifest.yaml`
 - Public pull request: `See skills-manifest.yaml`
-- Artifact status: `package`
-- Package path: `skills/governed-prd-creation/skill.zip`
-- Package integrity: `See release-evidence/governed-prd-creation-v1.1.1-package.sha256; after merged verification, see skills-manifest.yaml`
-- Clean-room verification: `See skills-manifest.yaml and release-evidence/`
+- Artifact status: `none` during source promotion
+- Package path: `pending post-merge rebuild`
+- Package integrity: `pending post-merge rebuild and SHA-256 evidence`
+- Clean-room verification: `pending merged-tree verification`
 - Known residuals: `See skills-manifest.yaml`
