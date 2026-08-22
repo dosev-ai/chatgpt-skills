@@ -3,7 +3,7 @@ name: governed-prd-creation
 description: Create, review, repair, version, approve, and hand off measurable Product Requirements Documents before architecture or implementation planning. Use for new PRDs, PRD repair, Hunter-Skeptic-Referee product review, approval control, ADR-candidate identification, traceability, standalone artifact delivery, or optional connected governance.
 license: MIT
 metadata:
-  version: 1.1.1
+  version: 1.2.0
   canonical_repository: deldos/skills
   canonical_path: skills/governed-prd-creation
 ---
@@ -24,6 +24,12 @@ Own the product-intent stage only:
 8. architecture handoff with an ADR-candidate register.
 
 Do not select implementation technologies merely to finish the PRD. Do not turn a PRD into executable backlog. An approved PRD authorizes architecture analysis, not implementation.
+
+## Reusable preflight compatibility
+
+When a broader delivery workflow has already established product authority, target users, prior evidence, reuse options, or initial risk and acceptance framing, accept that verified context as preflight input rather than rediscovering it. Keep the PRD lifecycle, Hunter-Skeptic-Referee product review, stakeholder decision capture, and authorized product-owner approval controlling.
+
+An upstream workshop, discovery flow, or preflight result may shape evidence and options, but it cannot approve the PRD or replace the product review and approval gates.
 
 ## Operating modes
 
