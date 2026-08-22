@@ -58,10 +58,10 @@ The skill does not infer product authority from names or titles, invent project 
 
 ## Release status
 
-- Public release state: `See skills-manifest.yaml`
-- Public pull request: `See skills-manifest.yaml`
-- Artifact status: `none` during source promotion
+- Public release state: `public-pr-open`
+- Public pull request: `#7`
+- Artifact status: `none`
 - Package path: `pending post-merge rebuild`
 - Package integrity: `pending post-merge rebuild and SHA-256 evidence`
-- Clean-room verification: `pending merged-tree verification`
-- Known residuals: `See skills-manifest.yaml`
+- Clean-room verification: `PUBLIC PR #7 OPEN: canonical v1.2.0 preflight compatibility is projected without the private specialist dependency; stale v1.1.1 package removed. Exact-final-HEAD validation/review, merge, merged-tree verification, clean-room invocation, and a new v1.2.0 package remain pending.`
+- Known residuals: `Require Public Skill Validation, accepted exact-final-HEAD automated review, and Bot Comment Closure Rate PASS on public PR #7 before merge.; Verify the merged public source tree and run clean-room invocation before release classification.; Build and publish a v1.2.0 skill.zip only from the merged verified public release, then record SHA-256 evidence.`
