@@ -30,7 +30,7 @@ skills:
     path: skills/governed-prd-creation
     display_name: Governed PRD Creation
     version: 1.2.0
-    release_state: ready-for-public-pr
+    release_state: public-pr-open
     description: Create, review, repair, version, approve, and hand off measurable Product Requirements Documents before architecture or implementation planning.
     canonical:
       repository: deldos/skills
@@ -41,10 +41,10 @@ skills:
       merge_commit: 1d734545511227fef25ba131d3fd6e705c248d20
     license: MIT
     artifact_status: none
-    verification: "PUBLIC PROJECTION PREPARED: canonical v1.2.0 preflight compatibility is projected without the private specialist dependency; stale v1.1.1 package removed. Public PR creation, exact-final-HEAD validation/review, merge, merged-tree verification, clean-room invocation, and a new v1.2.0 package remain pending."
+    public_pr: 7
+    verification: "PUBLIC PR #7 OPEN: canonical v1.2.0 preflight compatibility is projected without the private specialist dependency; stale v1.1.1 package removed. Exact-final-HEAD validation/review, merge, merged-tree verification, clean-room invocation, and a new v1.2.0 package remain pending."
     residuals:
-      - Open and review the public v1.2.0 promotion PR against the exact final HEAD.
-      - Require Public Skill Validation and Bot Comment Closure Rate PASS before merge.
+      - Require Public Skill Validation, accepted exact-final-HEAD automated review, and Bot Comment Closure Rate PASS on public PR #7 before merge.
       - Verify the merged public source tree and run clean-room invocation before release classification.
       - Build and publish a v1.2.0 skill.zip only from the merged verified public release, then record SHA-256 evidence.
   - id: governed-excel-creation
