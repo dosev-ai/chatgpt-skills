@@ -29,23 +29,24 @@ skills:
   - id: governed-prd-creation
     path: skills/governed-prd-creation
     display_name: Governed PRD Creation
-    version: 1.1.1
+    version: 1.2.0
     release_state: public-pr-open
-    description: Create, review, repair, version, approve, and hand off measurable Product Requirements Documents before architecture or implementation planning.
+    description: Create, review, repair, version, approve, and hand off governed Product Requirements Documents that define stable product intent before architecture or implementation planning.
     canonical:
       repository: deldos/skills
       path: skills/governed-prd-creation
-      version: 1.1.1
-      source_pr: 33
-      final_pr_head: eab6db6554841182fe763fc7781a8e8db90feaa2
-      merge_commit: f218d5ffaddcab12a736420166f3348b31183dac
+      version: 1.2.0
+      source_pr: 51
+      final_pr_head: a8e3333b9efcdab6621d74312d081c6e1125e8cf
+      merge_commit: 1d734545511227fef25ba131d3fd6e705c248d20
     license: MIT
-    artifact_status: package
-    public_pr: 5
-    verification: "REPAIR PRE-MERGE PASS: skill.zip now uses the standard skill-creator layout with one top-level governed-prd-creation directory; all 13 source files match byte-for-byte after prefix removal; source and extracted archive validation pass; 9 package-layout and evidence regression tests pass. ChatGPT upload/replacement and merged-tree verification remain pending."
+    artifact_status: none
+    public_pr: 7
+    verification: "PUBLIC PR #7 OPEN: recovery reprojects the complete canonical v1.2.0 SKILL semantics and reference contracts while keeping MIT licensing, release state, and lineage as distribution metadata. Exact-final-HEAD public validation, both required automated reviews, Bot Comment Closure Rate, merge, merged-tree verification, clean-room invocation, and a new v1.2.0 package remain pending."
     residuals:
-      - Confirm ChatGPT upload or replacement of the repaired package and record the exact runtime result.
-      - Verify the package from the repair merge before returning the skill to public-released.
+      - "Require Public Skill Validation, both required accepted exact-final-HEAD automated reviews, and Bot Comment Closure Rate PASS on public PR #7 before merge."
+      - Verify the merged public source tree and run clean-room invocation before release classification.
+      - Build and publish a v1.2.0 skill.zip only from the merged verified public release, then record package inventory and SHA-256 evidence.
   - id: governed-excel-creation
     path: skills/governed-excel-creation
     display_name: Governed Excel Creation
