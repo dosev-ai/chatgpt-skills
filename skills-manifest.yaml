@@ -31,7 +31,7 @@ skills:
     display_name: Governed PRD Creation
     version: 1.2.0
     release_state: public-pr-open
-    description: Create, review, repair, version, approve, and hand off measurable Product Requirements Documents before architecture or implementation planning.
+    description: Create, review, repair, version, approve, and hand off governed Product Requirements Documents that define stable product intent before architecture or implementation planning.
     canonical:
       repository: deldos/skills
       path: skills/governed-prd-creation
@@ -42,11 +42,11 @@ skills:
     license: MIT
     artifact_status: none
     public_pr: 7
-    verification: "PUBLIC PR #7 OPEN: canonical v1.2.0 preflight compatibility is projected without the private specialist dependency; stale v1.1.1 package removed. Exact-final-HEAD validation/review, merge, merged-tree verification, clean-room invocation, and a new v1.2.0 package remain pending."
+    verification: "PUBLIC PR #7 OPEN: recovery reprojects the complete canonical v1.2.0 SKILL semantics and reference contracts while keeping MIT licensing, release state, and lineage as distribution metadata. Exact-final-HEAD public validation, both required automated reviews, Bot Comment Closure Rate, merge, merged-tree verification, clean-room invocation, and a new v1.2.0 package remain pending."
     residuals:
-      - "Require Public Skill Validation, accepted exact-final-HEAD automated review, and Bot Comment Closure Rate PASS on public PR #7 before merge."
+      - "Require Public Skill Validation, both required accepted exact-final-HEAD automated reviews, and Bot Comment Closure Rate PASS on public PR #7 before merge."
       - Verify the merged public source tree and run clean-room invocation before release classification.
-      - Build and publish a v1.2.0 skill.zip only from the merged verified public release, then record SHA-256 evidence.
+      - Build and publish a v1.2.0 skill.zip only from the merged verified public release, then record package inventory and SHA-256 evidence.
   - id: governed-excel-creation
     path: skills/governed-excel-creation
     display_name: Governed Excel Creation
